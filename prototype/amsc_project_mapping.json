@@ -1,0 +1,6 @@
+{
+  "_comment": "AmSC amsc_project_context -> ACTIVATE identity. Placeholder until AmSC issues a test project context; AmSC auth stays disabled (AMSC_TOKEN_ENABLED=false) until the audience is registered.",
+  "project_mapping": {
+    "prj-pw-testbed": {"user": "Matthew.Shaxted", "posix_user": "mattshax", "account": "pw-testbed"}
+  }
+}

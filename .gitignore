@@ -1,0 +1,15 @@
+# internal working material (partner-confidential extracts, internal strategy); never pushed
+internal/
+site/
+prototype/logs/
+prototype/reports/
+prototype/*.key
+iri-topology/logs/
+iri-topology/web/api/
+# build and runtime
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.ruff_cache/

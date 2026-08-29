@@ -1,0 +1,7 @@
+{
+  "_comment": "AmSC amsc_project_context -> ACTIVATE identity. A bare string is an ACTIVATE username; an object adds the POSIX account and the ACTIVATE allocation charged for jobs. Unmapped projects are rejected with 401 by the framework.",
+  "project_mapping": {
+    "prj-open-science-materials-2026": {"user": "amsc-materials-svc", "posix_user": "amscmat", "account": "amsc-materials"},
+    "prj-genesis-seed-climate": "amsc-climate-svc"
+  }
+}

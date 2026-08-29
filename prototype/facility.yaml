@@ -1,0 +1,58 @@
+# Prototype: federation endpoint served from the Parallel Works lab cluster controller
+# (gpu.parallel.works), reading the live ACTIVATE API. Execution (compute and filesystem) is
+# enabled only on the clusters this host can reach directly; cloud clusters are published for
+# discovery and status as elastic resources.
+facility:
+  id: parallelworks-activate
+  name: Parallel Works ACTIVATE Federated Facility (prototype)
+  short_name: PW-ACTIVATE
+  description: >-
+    Prototype IRI Facility API v2 endpoint over Parallel Works ACTIVATE. Publishes the PW lab
+    cluster with execution enabled and a set of elastic cloud Slurm clusters for discovery.
+  organization_name: Parallel Works, Inc.
+  support_uri: https://parallelworks.com/support
+
+default_site: pw-lab-chicago
+
+sites:
+  - id: pw-lab-chicago
+    name: Parallel Works lab, Chicago
+    short_name: PW-LAB
+    operating_organization: Parallel Works, Inc.
+    locality_name: Chicago
+    state_or_province_name: Illinois
+    latitude: 41.8886
+    longitude: -87.6371
+    match: { types: [managed-cluster, existing] }
+  - id: pw-cloud-aws
+    name: Public cloud, AWS
+    short_name: CLOUD-AWS
+    operating_organization: Parallel Works, Inc.
+    match: { csp: [aws] }
+  - id: pw-cloud-google
+    name: Public cloud, Google Cloud
+    short_name: CLOUD-GCP
+    operating_organization: Parallel Works, Inc.
+    match: { csp: [google] }
+  - id: pw-cloud-azure
+    name: Public cloud, Azure
+    short_name: CLOUD-AZURE
+    operating_organization: Parallel Works, Inc.
+    match: { csp: [azure] }
+
+inventory:
+  include_cluster_types: [aws-slurm, azure-slurm, google-slurm, managed-cluster, existing]
+  exclude_names: []
+  include_names: [labcluster, awssmall, azurev3, googlerockyv3]
+  storage_names: [awsfsx, awsbucket, googlebucket]
+  require_tag: null
+  execution_clusters: [labcluster]
+  elastic_status: up
+  publish_storage: true
+  publish_inference: true
+  cache_ttl_seconds: 30
+
+allocation:
+  node_hour_units: [node-hour, node-hours, node_hours]
+  local_unit_urn: urn:doe-iri:allocation:ext:pw:credits
+  usage_sku: null      # accounting write-back disabled in the prototype

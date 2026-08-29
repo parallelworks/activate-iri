@@ -1,0 +1,32 @@
+# Edge mode: this endpoint fronts one existing cluster that has nothing else deployed. The PW
+# agent connects the cluster to ACTIVATE (outbound only); this container runs on the login node.
+facility:
+  id: example-lab-hpc
+  name: Example Laboratory HPC Center
+  short_name: EXLAB
+  description: Existing Slurm cluster exposed through the IRI Facility API by Parallel Works ACTIVATE (edge mode).
+  organization_name: Example Laboratory
+  support_uri: https://help.example-lab.org
+
+default_site: exlab-main
+
+sites:
+  - id: exlab-main
+    name: Example Laboratory, main data center
+    short_name: EXLAB-DC1
+    operating_organization: Example Laboratory
+    locality_name: Example City
+    state_or_province_name: Example State
+    match: { names: [labcluster] }
+
+inventory:
+  include_cluster_types: [managed-cluster, existing]
+  elastic_status: unknown
+  publish_storage: false
+  publish_inference: false
+  cache_ttl_seconds: 30
+
+allocation:
+  node_hour_units: [node-hour, node-hours]
+  local_unit_urn: urn:doe-iri:allocation:ext:pw:credits
+  usage_sku: SLURM_NODE_HOUR

@@ -1,0 +1,55 @@
+# Federation mode: one Deployment beside the ACTIVATE control plane (or on any Kubernetes the
+# platform manages). Secrets carry the service API key and, when the SSH executor is used, the
+# SSH CA private key trusted by the managed clusters.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activate-iri
+  labels: { app: activate-iri }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: activate-iri }
+  template:
+    metadata:
+      labels: { app: activate-iri }
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/parallelworks/activate-iri:latest
+          ports: [{ containerPort: 8000 }]
+          env:
+            - { name: ACTIVATE_IRI_MODE, value: federation }
+            - { name: ACTIVATE_IRI_EXECUTOR, value: ssh }
+            - { name: ACTIVATE_HOST, value: https://activate.parallel.works }
+            - { name: ACTIVATE_ORGANIZATION, value: amsc }
+            - { name: ACTIVATE_SERVICE_API_KEY, valueFrom: { secretKeyRef: { name: activate-iri, key: service-api-key } } }
+            - { name: ACTIVATE_IRI_SSH_CA_KEY, value: /etc/activate-iri/ssh/ca }
+            - { name: ACTIVATE_IRI_SSH_KNOWN_HOSTS, value: /etc/activate-iri/ssh/known_hosts }
+            - { name: API_URL_ROOT, value: https://iri.activate.pw }
+            - { name: API_URL, value: api/v2 }
+            - { name: AMSC_TOKEN_ENABLED, value: "true" }
+            - { name: AMSC_TOKEN_ISSUER, value: https://auth.amsc.energy.gov }          # confirm with AmSC VO team
+            - { name: AMSC_TOKEN_AUDIENCE, value: https://iri.activate.pw/ }
+            - { name: AMSC_OIDC_DISCOVERY_URL, value: https://auth.amsc.energy.gov/.well-known/openid-configuration }
+            - { name: AMSC_PROJECT_MAPPING_FILE, value: /etc/activate-iri/amsc_project_mapping.json }
+            - { name: IRI_IDEMPOTENCY_STORE, value: demo_adapter.compute.idempotency.RedisIdempotencyStore }
+            - { name: REDIS_URL, value: redis://activate-iri-redis:6379 }
+            - { name: OPENTELEMETRY_ENABLED, value: "true" }
+            - { name: OTLP_ENDPOINT, value: http://otel-collector:4317 }             # forwarded to AmSC IntelOps
+          volumeMounts:
+            - { name: config, mountPath: /etc/activate-iri, readOnly: true }
+            - { name: ssh, mountPath: /etc/activate-iri/ssh, readOnly: true }
+          readinessProbe: { httpGet: { path: /api/v2/facility, port: 8000 }, periodSeconds: 15 }
+      volumes:
+        - name: config
+          configMap: { name: activate-iri }
+        - name: ssh
+          secret: { secretName: activate-iri-ssh, defaultMode: 0400 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: activate-iri }
+spec:
+  selector: { app: activate-iri }
+  ports: [{ port: 80, targetPort: 8000 }]

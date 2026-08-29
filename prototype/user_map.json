@@ -1,0 +1,4 @@
+{
+  "_comment": "ACTIVATE username -> POSIX account on the lab cluster. The prototype executor runs locally as the service user, so this documents intent; sudo mode enforces it.",
+  "users": { "Matthew.Shaxted": "mattshax" }
+}

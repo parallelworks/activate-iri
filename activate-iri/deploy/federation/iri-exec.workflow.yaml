@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://activate.parallel.works/workflow.schema.json
+# iri-exec: transport for activate-iri's WorkflowExecutor.
+# Runs a base64-encoded script on the selected cluster's login node as the platform user and
+# prints the result between markers so the executor can parse stdout and the exit code. Every
+# invocation is an audited ACTIVATE workflow run; nothing needs inbound network access.
+permissions:
+  - "*"
+
+jobs:
+  exec:
+    ssh:
+      remoteHost: ${{ inputs.resource.ip }}
+    steps:
+      - name: Run script
+        run: |
+          set +e
+          umask 077
+          tmp=$(mktemp -d "${TMPDIR:-/tmp}/iri-exec.XXXXXX")
+          echo "${{ inputs.script_b64 }}" | base64 -d > "$tmp/script.sh"
+          echo "${{ inputs.stdin_b64 }}" | base64 -d > "$tmp/stdin"
+          echo "__IRI_BEGIN__"
+          /bin/bash -l "$tmp/script.sh" < "$tmp/stdin"
+          rc=$?
+          echo "__IRI_END__"
+          echo "rc=$rc"
+          rm -rf "$tmp"
+          exit 0
+
+'on':
+  execute:
+    inputs:
+      resource:
+        type: compute-clusters
+        label: Target cluster
+        include-workspace: false
+      script_b64:
+        type: string
+        label: Script (base64)
+        hidden: true
+      stdin_b64:
+        type: string
+        label: Stdin (base64)
+        hidden: true
+        optional: true
