@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=https://activate.parallel.works/workflow.schema.json
+# IRI Job: submit a PSI/J job to any DOE IRI facility (ALCF, NERSC, OLCF, ESnet, or a PW facility
+# endpoint) from ACTIVATE, poll it to completion, and bring stdout back through the IRI filesystem
+# API. This is the consumer-side half of the integration: ACTIVATE users and workflows reach lab
+# facilities that already run an IRI endpoint without leaving the platform.
+#
+# The facility bearer token comes from an ACTIVATE account variable (never from the form), so a
+# user grants it once and every run of this workflow reuses it. For facilities that accept AmSC
+# Keycards, store the Keycard; for ALCF or NERSC, store the Globus-derived IRI token.
+permissions:
+  - "*"
+
+jobs:
+  submit:
+    steps:
+      - name: Submit and wait
+        env:
+          IRI_BASE: ${{ inputs.facility.base_url }}
+          IRI_TOKEN: ${{ inputs.facility.token }}
+          RESOURCE_ID: ${{ inputs.facility.resource_id }}
+          POLL: ${{ inputs.job.poll_seconds }}
+        run: |
+          set -euo pipefail
+          export PATH="$PATH:$HOME/pw"
+          auth=(-H "Authorization: Bearer ${IRI_TOKEN}" -H "Content-Type: application/json")
+          api() { curl -sS --fail-with-body "${auth[@]}" "$@"; }
+
+          # 1. Discover the resource by id or name and confirm it accepts compute jobs.
+          if [ -z "${RESOURCE_ID}" ]; then
+            RESOURCE_ID=$(api "${IRI_BASE}/compute/resources" | jq -r --arg n "${{ inputs.facility.resource_name }}" '.[] | select(.name==$n) | .id' | head -1)
+          fi
+          [ -n "${RESOURCE_ID}" ] || { echo "resource not found at ${IRI_BASE}"; exit 2; }
+          echo "resource: ${RESOURCE_ID}"
+
+          # 2. Build the PSI/J JobSpec from the form.
+          spec=$(jq -n \
+            --arg exe "${{ inputs.job.executable }}" \
+            --arg args "${{ inputs.job.arguments }}" \
+            --arg name "${{ inputs.job.name }}" \
+            --arg dir "${{ inputs.job.directory }}" \
+            --arg queue "${{ inputs.job.queue_name }}" \
+            --arg account "${{ inputs.job.account }}" \
+            --arg image "${{ inputs.job.container_image }}" \
+            --argjson nodes ${{ inputs.job.node_count }} \
+            --argjson ppn ${{ inputs.job.processes_per_node }} \
+            --argjson gpus ${{ inputs.job.gpus_per_process }} \
+            --argjson duration ${{ inputs.job.duration_seconds }} '
+            {executable: $exe, arguments: ($args | split(" ") | map(select(length>0))), name: $name, directory: $dir,
+             stdout_path: ($dir + "/" + $name + ".out"), stderr_path: ($dir + "/" + $name + ".err"),
+             resources: ({node_count: $nodes, processes_per_node: $ppn} + (if $gpus > 0 then {gpu_cores_per_process: $gpus} else {} end)),
+             attributes: ({duration: $duration, queue_name: $queue} + (if $account != "" then {account: $account} else {} end))}
+            + (if $image != "" then {container: {image: $image}} else {} end)')
+          echo "${spec}" | jq .
+
+          # 3. Submit (idempotent per workflow run) and poll.
+          job=$(api -X POST -H "Idempotency-Key: ${PW_JOB_ID}" "${IRI_BASE}/compute/job/${RESOURCE_ID}" -d "${spec}")
+          job_id=$(echo "${job}" | jq -r .id)
+          echo "job: ${job_id}"
+          while true; do
+            state=$(api "${IRI_BASE}/compute/status/${RESOURCE_ID}/${job_id}?historical=true" | jq -r .status.state)
+            echo "$(date -u +%FT%TZ) ${job_id} ${state}"
+            case "${state}" in completed|failed|canceled) break;; esac
+            sleep "${POLL}"
+          done
+
+          # 4. Fetch stdout through the filesystem task loop (POST + poll /task/{id}).
+          task=$(api -X POST "${IRI_BASE}/filesystem/download/${RESOURCE_ID}" -d "$(jq -n --arg p "${{ inputs.job.directory }}/${{ inputs.job.name }}.out" '{path: $p}')" | jq -r .task_uri)
+          for i in $(seq 1 60); do
+            t=$(api "${task}")
+            s=$(echo "${t}" | jq -r .status)
+            [ "${s}" = completed ] && { echo "${t}" | jq -r .result.output | base64 -d; break; }
+            [ "${s}" = failed ] && { echo "${t}" | jq -r .result.output; break; }
+            sleep 2
+          done
+          [ "${state}" = completed ]
+
+'on':
+  execute:
+    inputs:
+      facility:
+        type: group
+        label: IRI facility
+        items:
+          base_url:
+            type: string
+            label: Facility API base URL
+            default: https://api.alcf.anl.gov/api/v1
+            tooltip: e.g. https://api.alcf.anl.gov/api/v1, https://api.iri.nersc.gov/api/v2, https://iri.activate.pw/api/v2
+          token:
+            type: string
+            label: Bearer token account variable
+            default: ${{ variables.IRI_TOKEN_ALCF }}
+            tooltip: Store the facility token as an account variable and reference it here.
+          resource_name:
+            type: string
+            label: Compute resource name
+            default: Polaris
+          resource_id:
+            type: string
+            label: Compute resource id (overrides name)
+            optional: true
+      job:
+        type: group
+        label: PSI/J job
+        items:
+          name: { type: string, label: Job name, default: activate-iri-job }
+          executable: { type: string, label: Executable, default: /bin/bash }
+          arguments: { type: string, label: Arguments (space separated), default: "-c hostname" }
+          directory: { type: string, label: Working directory, default: /home/${{ user }} }
+          container_image: { type: string, label: Container image (optional), optional: true }
+          node_count: { type: number, label: Nodes, default: 1 }
+          processes_per_node: { type: number, label: Processes per node, default: 1 }
+          gpus_per_process: { type: number, label: GPUs per process, default: 0 }
+          duration_seconds: { type: number, label: Walltime (seconds), default: 600 }
+          queue_name: { type: string, label: Queue or partition, default: debug }
+          account: { type: string, label: Account or project to charge, optional: true }
+          poll_seconds: { type: number, label: Poll interval (seconds), default: 15 }

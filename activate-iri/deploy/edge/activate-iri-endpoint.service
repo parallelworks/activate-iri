@@ -1,0 +1,17 @@
+[Unit]
+Description=Publish the local IRI endpoint through the ACTIVATE reverse tunnel (pw endpoints)
+After=activate-iri.service pw-agent.service
+Requires=activate-iri.service
+
+[Service]
+User=iri
+Environment=PW_API_KEY_FILE=/etc/activate-iri/service.key
+# --public: the IRI facility and status groups are unauthenticated by specification; the
+# authenticated groups validate their own bearer tokens (AmSC Keycard or ACTIVATE credential).
+# --keep: the session survives restarts so the URL is stable for AmSC's endpoint map.
+ExecStart=/usr/local/bin/pw endpoints http --name __NAME__ --public --keep --no-subdomain=false -o text 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

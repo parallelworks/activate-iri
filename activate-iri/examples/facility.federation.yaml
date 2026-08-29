@@ -1,0 +1,55 @@
+# Federation mode: the endpoint runs beside the ACTIVATE control plane and publishes every
+# cluster the service account can see. One Site per provider region or lab.
+facility:
+  id: parallelworks-activate
+  name: Parallel Works ACTIVATE Federated Facility
+  short_name: PW-ACTIVATE
+  description: >-
+    Federated compute, storage, and inference across hyperscale cloud regions, NeoCloud GPU
+    providers, and existing on-premises clusters, operated by Parallel Works under one identity,
+    allocation model, and storage namespace.
+  organization_name: Parallel Works, Inc.
+  support_uri: https://parallelworks.com/support
+
+default_site: pw-cloud-us-east
+
+sites:
+  - id: pw-cloud-us-east
+    name: Public cloud, US East
+    short_name: CLOUD-USE
+    operating_organization: Parallel Works, Inc.
+    locality_name: Ashburn
+    state_or_province_name: Virginia
+    match: { csp: [aws, google, azure], regions: [us-east-1, us-east-2, us-east4, eastus, eastus2] }
+  - id: pw-cloud-us-central
+    name: Public cloud, US Central
+    short_name: CLOUD-USC
+    operating_organization: Parallel Works, Inc.
+    match: { csp: [aws, google, azure] }
+  - id: pw-neocloud
+    name: NeoCloud GPU partner data centers
+    short_name: NEO
+    operating_organization: Parallel Works, Inc.
+    match: { types: [existing], tags: [neocloud] }
+  - id: pw-lab-chicago
+    name: Parallel Works lab, Chicago
+    short_name: PW-LAB
+    operating_organization: Parallel Works, Inc.
+    locality_name: Chicago
+    state_or_province_name: Illinois
+    latitude: 41.8886
+    longitude: -87.6371
+    match: { types: [managed-cluster, existing] }
+
+inventory:
+  include_cluster_types: [aws-slurm, azure-slurm, google-slurm, openstack-slurm, managed-cluster, existing]
+  require_tag: iri            # publish only clusters an admin has tagged "iri"
+  elastic_status: up
+  publish_storage: true
+  publish_inference: true
+  cache_ttl_seconds: 30
+
+allocation:
+  node_hour_units: [node-hour, node-hours, node_hours]
+  local_unit_urn: urn:doe-iri:allocation:ext:pw:credits   # pending authority-code reservation with the IRI registry
+  usage_sku: SLURM_NODE_HOUR

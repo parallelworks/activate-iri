@@ -1,0 +1,23 @@
+[Unit]
+Description=DOE IRI Facility API endpoint backed by Parallel Works ACTIVATE (edge mode)
+After=network-online.target pw-agent.service
+Wants=network-online.target
+
+[Service]
+User=root
+EnvironmentFile=/etc/activate-iri/env
+# Host networking and the shared filesystems keep sbatch/squeue and user home directories visible
+# to the endpoint; the container itself only holds the API, commands run through sudo -u <user>.
+ExecStartPre=-/usr/bin/docker rm -f activate-iri
+ExecStart=/usr/bin/docker run --name activate-iri --rm --network host --env-file /etc/activate-iri/env \
+  -v /etc/activate-iri:/etc/activate-iri:ro -v /home:/home -v /scratch:/scratch -v /etc/passwd:/etc/passwd:ro \
+  -v /etc/group:/etc/group:ro -v /etc/sudoers.d:/etc/sudoers.d:ro -v /usr/bin/sudo:/usr/bin/sudo:ro \
+  -v /usr/bin/sbatch:/usr/bin/sbatch:ro -v /usr/bin/squeue:/usr/bin/squeue:ro -v /usr/bin/sacct:/usr/bin/sacct:ro \
+  -v /usr/bin/scancel:/usr/bin/scancel:ro -v /etc/slurm:/etc/slurm:ro -v /run/munge:/run/munge \
+  __IMAGE__
+ExecStop=/usr/bin/docker stop activate-iri
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

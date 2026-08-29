@@ -1,0 +1,58 @@
+# IRI facility endpoints aggregated into the topology view. Coordinates come from each
+# facility's Site record when present, otherwise from the overrides here. Links are
+# illustrative: they show the intended ESnet paths and cloud interconnects between sites and
+# are not measured.
+monitor_label: ACTIVATE IRI federation view
+
+facilities:
+  - id: alcf
+    name: Argonne Leadership Computing Facility
+    base_url: https://api.alcf.anl.gov/api/v1
+    scheduler: PBS
+    default_site: { lat: 41.71, lon: -87.98, location: "Lemont, IL" }
+  - id: nersc
+    name: National Energy Research Scientific Computing Center
+    base_url: https://api.iri.nersc.gov/api/v2
+    scheduler: SLURM
+    default_site: { lat: 37.88, lon: -122.25, location: "Berkeley, CA" }
+  - id: esnet-east
+    name: ESnet Facility East
+    base_url: https://iri-dev.ppg.es.net/api/v1
+    scheduler: SLURM
+    default_site: { lat: 39.04, lon: -77.49, location: "AWS us-east-1, Ashburn, VA", cloud: true }
+  - id: esnet-west
+    name: ESnet Facility West
+    base_url: https://esnet-west.sdn-sense.net/api/v1
+    scheduler: SLURM
+    default_site: { lat: 45.84, lon: -119.70, location: "AWS us-west-2, Boardman, OR", cloud: true }
+  - id: olcf-open
+    name: Oak Ridge Leadership Computing Facility (open enclave)
+    base_url: https://amsc-open.s3m.olcf.ornl.gov/api/v1
+    scheduler: SLURM
+    default_site: { lat: 35.93, lon: -84.31, location: "Oak Ridge, TN" }
+  - id: olcf-moderate
+    name: Oak Ridge Leadership Computing Facility (moderate enclave)
+    base_url: https://amsc-moderate.s3m.olcf.ornl.gov/api/v1
+    scheduler: SLURM
+    default_site: { lat: 35.95, lon: -84.29, location: "Oak Ridge, TN" }
+  - id: pw
+    name: Parallel Works ACTIVATE
+    base_url: http://127.0.0.1:8100/api/v2       # the prototype endpoint on this host; use https://activate-iri.activate.pw/api/v2 elsewhere
+    scheduler: SLURM
+    default_site: { lat: 41.89, lon: -87.64, location: "Chicago, IL" }
+    sites:
+      PW-LAB: { lat: 41.89, lon: -87.64, location: "Chicago, IL", name: "Parallel Works lab, Chicago" }
+      CLOUD-AWS: { lat: 39.04, lon: -77.49, location: "AWS us-east-1", cloud: true, name: "ACTIVATE on AWS" }
+      CLOUD-GCP: { lat: 41.26, lon: -95.86, location: "Google us-central1", cloud: true, name: "ACTIVATE on Google Cloud" }
+      CLOUD-AZURE: { lat: 37.37, lon: -79.80, location: "Azure eastus", cloud: true, name: "ACTIVATE on Azure" }
+
+links:
+  - { source: alcf-alcf240, target: nersc-nersc, label: "ESnet backbone (illustrative)" }
+  - { source: alcf-alcf240, target: olcf-open-olcf-open-enclave, label: "ESnet backbone (illustrative)" }
+  - { source: nersc-nersc, target: esnet-west-esnet-west, label: "ESnet to AWS us-west-2 (illustrative)" }
+  - { source: olcf-open-olcf-open-enclave, target: esnet-east-esnet-east, label: "ESnet to AWS us-east-1 (illustrative)" }
+  - { source: pw-pw-lab, target: alcf-alcf240, label: "ACTIVATE consumer workflow (illustrative)" }
+  - { source: pw-pw-lab, target: pw-cloud-aws, label: "ACTIVATE control plane" }
+  - { source: pw-pw-lab, target: pw-cloud-gcp, label: "ACTIVATE control plane" }
+  - { source: pw-pw-lab, target: pw-cloud-azure, label: "ACTIVATE control plane" }
+  - { source: esnet-east-esnet-east, target: pw-cloud-aws, label: "AWS region peering (illustrative)" }

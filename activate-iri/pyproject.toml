@@ -1,0 +1,37 @@
+[project]
+name = "activate-iri"
+version = "0.1.0"
+description = "DOE IRI Facility API (v2) adapters that expose Parallel Works ACTIVATE resources as an IRI facility, in federation mode (ACTIVATE-hosted) or edge mode (single cluster, PW agent + reverse tunnel)."
+requires-python = ">=3.13,<3.14"
+license = { text = "MIT" }
+dependencies = [
+    # The DOE reference framework: routers, models, AmSC Keycard auth, idempotency, OTel.
+    "iri-api-python @ git+https://github.com/doe-iri/iri-facility-api-python.git",
+    "httpx>=0.28.1,<0.29.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9", "pytest-asyncio>=1.0", "ruff>=0.6"]
+redis = ["redis>=5"]
+
+[project.scripts]
+activate-iri = "activate_iri.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["activate_iri"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 140

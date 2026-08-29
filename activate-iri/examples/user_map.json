@@ -1,0 +1,7 @@
+{
+  "_comment": "Optional overrides from ACTIVATE username to POSIX account, globally or per cluster.",
+  "users": {
+    "jane.doe": "jdoe",
+    "amsc-materials-svc": {"posix_user": "amscmat", "clusters": {"labcluster": "amscmat2"}}
+  }
+}
