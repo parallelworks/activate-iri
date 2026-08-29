@@ -25,6 +25,12 @@ Findings during bring-up.
 4. The platform credential in use is a 24-hour token from the pw CLI context. Create a service API key in the ACTIVATE UI before leaving the endpoint running unattended; `run.sh` picks up an `apikey` entry automatically.
 5. AmSC Keycard validation stays off (`AMSC_TOKEN_ENABLED=false`) until AmSC registers the endpoint audience (`https://activate-iri.activate.pw/`) and supplies the issuer and a test project context. The mapping file carries a placeholder project.
 
+Routing and gateway (2026-08-29, evening).
+
+The endpoint now runs `ACTIVATE_IRI_EXECUTOR=auto`: the lab cluster is served locally, and the second cluster (`a30gpuserver`, an existing-cluster record) is served through `iri-exec` workflow runs under the service account. Verified through the public contract: a filesystem ls on the second cluster returned the listing, and a job submitted to it (Slurm job 22) went queued to completed with its stdout on disk. Two fixes came out of this: the workflow executor now waits for the END marker because step logs can lag the run status by a few seconds, and missing markers are reported as a failure instead of an empty success. Per the direction to serve everything under one account for now, runs use the service credential; the caller-credential pass-through is in place for the later per-user extension.
+
+Gateway mode is on with ALCF, NERSC, ESnet East, and OLCF open as upstreams: the consolidated `/status/resources` carries their resources under namespaced ids, `/status/incidents` merges their open incidents, and `/compute/resources` lists their compute systems alongside ACTIVATE's. Forwarded compute and filesystem calls need a facility token in `IRI_TOKEN_<FACILITY>`; none is configured yet, so those return 401 for upstream resources until a token is added. The gateway test suite covers forwarding against a fake upstream.
+
 Operations.
 
     ./run.sh          start the endpoint (idempotent)

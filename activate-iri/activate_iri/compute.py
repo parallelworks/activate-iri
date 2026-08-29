@@ -20,6 +20,7 @@ from app.types.user import User
 from fastapi import HTTPException
 
 from .auth import ActivateAuthMixin
+from .gateway import split_id
 from .runtime import get_runtime
 from .schedulers import JobRecord, Scheduler, scheduler_for
 
@@ -120,7 +121,18 @@ class ComputeAdapter(ActivateAuthMixin, facility_adapter.FacilityAdapter):
             raise HTTPException(status_code=400, detail="Resource is not a compute system")
         return rt, cluster, pick_scheduler(cluster), rt.identities.resolve(user, cluster)
 
+    @staticmethod
+    def _upstream(resource):
+        rt = get_runtime()
+        fac, uid = split_id(resource.id) if resource is not None else (None, "")
+        if fac and rt.gateway and fac in rt.gateway.upstreams:
+            return rt.gateway, fac, uid
+        return None, None, None
+
     async def submit_job(self, resource, user, job_spec: compute_models.JobSpec) -> compute_models.Job:
+        gw, fac, uid = self._upstream(resource)
+        if gw:
+            return await gw.submit_job(fac, uid, user.api_key, job_spec)
         rt, cluster, scheduler, identity = await self._context(resource, user)
         account = (job_spec.attributes.account if job_spec.attributes else None) or rt.identities.account_for(user)
         job_key = str(uuid.uuid4())
@@ -147,6 +159,9 @@ class ComputeAdapter(ActivateAuthMixin, facility_adapter.FacilityAdapter):
         raise HTTPException(status_code=501, detail="Job modification after submission is not supported on this facility")
 
     async def get_job(self, resource, user, job_id: str, historical: bool = True, include_spec: bool = False) -> compute_models.Job:
+        gw, fac, uid = self._upstream(resource)
+        if gw:
+            return await gw.get_job(fac, uid, job_id, user.api_key, historical)
         rt, cluster, scheduler, identity = await self._context(resource, user)
         result = await rt.executor.run(identity, scheduler.status_command(job_id, historical), timeout=rt.settings.command_timeout)
         rec = scheduler.parse_status(job_id, result.stdout)
@@ -157,6 +172,9 @@ class ComputeAdapter(ActivateAuthMixin, facility_adapter.FacilityAdapter):
         return to_job(rec, cluster.get("name"), scheduler.name)
 
     async def get_jobs(self, resource, user, offset: int, limit: int, filters=None, historical: bool = False, include_spec: bool = False) -> list[compute_models.Job]:
+        gw, fac, uid = self._upstream(resource)
+        if gw:
+            return await gw.get_jobs(fac, uid, user.api_key, offset, limit, historical)
         rt, cluster, scheduler, identity = await self._context(resource, user)
         result = await rt.executor.run(identity, scheduler.list_command(identity.posix_user, historical), timeout=rt.settings.command_timeout)
         records = scheduler.parse_list(result.stdout)
@@ -165,6 +183,9 @@ class ComputeAdapter(ActivateAuthMixin, facility_adapter.FacilityAdapter):
         return [to_job(r, cluster.get("name"), scheduler.name) for r in records[offset:][:limit]]
 
     async def cancel_job(self, resource, user, job_id: str) -> bool:
+        gw, fac, uid = self._upstream(resource)
+        if gw:
+            return await gw.cancel_job(fac, uid, job_id, user.api_key)
         rt, _cluster, scheduler, identity = await self._context(resource, user)
         result = await rt.executor.run(identity, scheduler.cancel_command(job_id), timeout=rt.settings.command_timeout)
         if result.returncode != 0 and "already" not in (result.stderr + result.stdout).lower():

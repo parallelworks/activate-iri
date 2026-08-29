@@ -35,6 +35,12 @@ Slurm, PBS Pro, and a shell fallback for SSH-only systems.
 Elastic cloud clusters that are provisionable but idle are advertised as `up` (configurable), with
 `configured_node_count` set to the cluster's maximum; submitting a job triggers provisioning.
 
+## Routing and gateway mode
+
+`ACTIVATE_IRI_EXECUTOR=auto` routes each command by cluster: `ACTIVATE_IRI_LOCAL_CLUSTERS` run locally (the host the endpoint sits on), `ACTIVATE_IRI_SSH_CLUSTERS` over SSH, and everything else as an ACTIVATE workflow run of `iri-exec` through the platform API. Runs happen under the endpoint's service credential by default; a caller who authenticated with an ACTIVATE credential gets the run in their own account (the pw CLI honors `PW_API_KEY`).
+
+A `gateway:` section in the facility file lists upstream IRI facilities. Their Sites, resources, capabilities, and open incidents are merged into this facility under namespaced ids (`alcf:<id>`), and compute, filesystem, and account calls on those resources are forwarded with the facility token from `IRI_TOKEN_<FACILITY>`, a token file, or an `X-IRI-Facility-Token-<facility>` request header. One base URL then fronts every facility a user can reach.
+
 ## Identity
 
 1. AmSC Keycard: validated by the framework (`AMSC_TOKEN_*`), then `amsc_project_context` is

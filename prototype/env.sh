@@ -1,6 +1,9 @@
 # Sourced by run.sh. No secrets here: the ACTIVATE credential is read from the pw CLI context at start.
 export ACTIVATE_IRI_MODE=federation
-export ACTIVATE_IRI_EXECUTOR=local          # this host is the lab cluster controller
+export ACTIVATE_IRI_EXECUTOR=auto           # local on this host, ACTIVATE workflow runs (iri-exec) elsewhere
+export ACTIVATE_IRI_LOCAL_CLUSTERS=labcluster
+export ACTIVATE_IRI_EXEC_WORKFLOW=iri-exec
+export ACTIVATE_IRI_PW_BIN=/home/mattshax/pw/pw
 export ACTIVATE_IRI_LOCAL_RUN_AS=direct     # prototype: commands run as the service user (mattshax)
 export ACTIVATE_HOST=https://activate.parallel.works
 export ACTIVATE_ORGANIZATION=parallelworks

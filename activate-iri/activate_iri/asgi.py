@@ -19,8 +19,8 @@ async def root():
 
 # The reference error handler answers every 405 with "Allow: GET, HEAD". The IRI validator
 # checks that the Allow header matches the route's methods, so compute it from the route table.
-from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
-from starlette.routing import Match  # noqa: E402
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Match
 
 _reference_405 = APP.exception_handlers.get(405) or APP.exception_handlers.get(StarletteHTTPException)
 

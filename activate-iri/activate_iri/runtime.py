@@ -11,7 +11,8 @@ import time
 
 from .activate_client import ActivateClient, FakeActivateClient
 from .config import Settings, load_facility_config
-from .executor import Executor, LocalExecutor, SSHExecutor, WorkflowExecutor
+from .executor import Executor, LocalExecutor, RoutingExecutor, SSHExecutor, WorkflowExecutor
+from .gateway import Gateway, GatewayConfig
 from .inventory import Inventory, InventoryBuilder, StatusLedger
 
 
@@ -34,14 +35,21 @@ class Runtime:
         self.identities = IdentityResolver(self.settings.user_map_file)
         self.tasks = TaskQueue(ttl_seconds=self.settings.task_ttl_seconds)
         self.service_user: str | None = None
+        self.gateway: Gateway | None = Gateway(GatewayConfig.model_validate(self.config.gateway)) if self.config.gateway else None
 
     def _make_executor(self) -> Executor:
-        kind = self.settings.resolved_executor()
+        s = self.settings
+        kind = s.resolved_executor()
+        local = LocalExecutor(run_as=s.local_run_as)
+        workflow = WorkflowExecutor(s.pw_bin, s.exec_workflow, service_credential=s.activate_api_key)
+        ssh = SSHExecutor(s.ssh_key, s.ssh_ca_key, s.ssh_jump, s.ssh_known_hosts)
         if kind == "local":
-            return LocalExecutor(run_as=self.settings.local_run_as)
+            return local
         if kind == "workflow":
-            return WorkflowExecutor(self.settings.pw_bin, self.settings.exec_workflow)
-        return SSHExecutor(self.settings.ssh_key, self.settings.ssh_ca_key, self.settings.ssh_jump, self.settings.ssh_known_hosts)
+            return workflow
+        if kind == "auto":
+            return RoutingExecutor(default=workflow, local=local, local_clusters=s.local_clusters, ssh=ssh, ssh_clusters=s.ssh_clusters)
+        return ssh
 
     async def inventory(self, refresh: bool = False) -> Inventory:
         ttl = self.config.inventory.cache_ttl_seconds
@@ -59,6 +67,9 @@ class Runtime:
                     self.service_user = ""
             only = self.settings.edge_cluster if self.settings.mode == "edge" else None
             self._inventory = await self.builder.build(self.client, self.settings.activate_organization, self.service_user or None, only_cluster=only)
+            if self.gateway:
+                await self.gateway.refresh()
+                self.gateway.merge_into(self._inventory)
             return self._inventory
 
 

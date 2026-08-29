@@ -43,10 +43,10 @@ sites:
 inventory:
   include_cluster_types: [aws-slurm, azure-slurm, google-slurm, managed-cluster, existing]
   exclude_names: []
-  include_names: [labcluster, awssmall, azurev3, googlerockyv3]
+  include_names: [labcluster, a30gpuserver, awssmall, azurev3, googlerockyv3]
   storage_names: [awsfsx, awsbucket, googlebucket]
   require_tag: null
-  execution_clusters: [labcluster]
+  execution_clusters: [labcluster, a30gpuserver]   # cloud clusters stay discovery-only until elastic spend is approved
   elastic_status: up
   publish_storage: true
   publish_inference: true
@@ -56,3 +56,14 @@ allocation:
   node_hour_units: [node-hour, node-hours, node_hours]
   local_unit_urn: urn:doe-iri:allocation:ext:pw:credits
   usage_sku: null      # accounting write-back disabled in the prototype
+
+# Gateway mode: upstream IRI facilities consolidated under this endpoint. Their sites and
+# resources appear here with namespaced ids (alcf:<id>); authenticated calls are forwarded with
+# the facility token from IRI_TOKEN_<FACILITY> (or a token file) when one is configured.
+gateway:
+  cache_ttl_seconds: 120
+  facilities:
+    - { id: alcf, name: Argonne Leadership Computing Facility, base_url: https://api.alcf.anl.gov/api/v1, token_env: IRI_TOKEN_ALCF }
+    - { id: nersc, name: National Energy Research Scientific Computing Center, base_url: https://api.iri.nersc.gov/api/v2, token_env: IRI_TOKEN_NERSC }
+    - { id: esnet-east, name: ESnet Facility East, base_url: https://iri-dev.ppg.es.net/api/v1, token_env: IRI_TOKEN_ESNET }
+    - { id: olcf-open, name: Oak Ridge Leadership Computing Facility (open enclave), base_url: https://amsc-open.s3m.olcf.ornl.gov/api/v1, token_env: IRI_TOKEN_OLCF }

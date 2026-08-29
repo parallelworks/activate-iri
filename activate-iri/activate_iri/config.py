@@ -99,6 +99,8 @@ class FacilityConfig(BaseModel):
     default_site: str
     inventory: InventoryConfig = Field(default_factory=InventoryConfig)
     allocation: AllocationConfig = Field(default_factory=AllocationConfig)
+    # Gateway mode: upstream IRI facilities consolidated under this endpoint (see gateway.py).
+    gateway: dict | None = None
 
     def site_for(self, cluster: dict) -> SiteConfig:
         for site in self.sites:
@@ -133,7 +135,10 @@ class Settings:
     # edge mode: the single cluster this endpoint fronts (must match the ACTIVATE cluster name)
     edge_cluster: str | None = field(default_factory=lambda: _env("ACTIVATE_IRI_EDGE_CLUSTER"))
     # executor selection: local (edge), ssh (federation default), workflow (federation fallback)
-    executor: str = field(default_factory=lambda: _env("ACTIVATE_IRI_EXECUTOR", ""))
+    executor: str = field(default_factory=lambda: _env("ACTIVATE_IRI_EXECUTOR", ""))  # local | ssh | workflow | auto
+    # auto mode: clusters served by the local executor (this host) and by SSH; the rest use workflow runs
+    local_clusters: list[str] = field(default_factory=lambda: [c for c in (_env("ACTIVATE_IRI_LOCAL_CLUSTERS", "") or "").split(",") if c])
+    ssh_clusters: list[str] = field(default_factory=lambda: [c for c in (_env("ACTIVATE_IRI_SSH_CLUSTERS", "") or "").split(",") if c])
     local_run_as: str = field(default_factory=lambda: _env("ACTIVATE_IRI_LOCAL_RUN_AS", "sudo"))  # sudo | direct
     ssh_key: str | None = field(default_factory=lambda: _env("ACTIVATE_IRI_SSH_KEY"))
     ssh_ca_key: str | None = field(default_factory=lambda: _env("ACTIVATE_IRI_SSH_CA_KEY"))

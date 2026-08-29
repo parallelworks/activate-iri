@@ -17,6 +17,7 @@ from app.types.scalars import AllocationUnit
 from app.types.user import User
 
 from .auth import ActivateAuthMixin
+from .gateway import split_id
 from .inventory import now, stable_id
 from .runtime import get_runtime
 
@@ -57,6 +58,14 @@ class AccountAdapter(ActivateAuthMixin, facility_adapter.FacilityAdapter):
     async def get_projects(self, user: User) -> list[account_models.Project]:
         allocations = await self._allocations_for(user)
         projects = []
+        rt = get_runtime()
+        if rt.gateway:
+            for fac in rt.gateway.upstreams:
+                if rt.gateway.token_for(fac, caller_token=user.api_key):
+                    try:
+                        projects.extend(await rt.gateway.projects(fac, user.api_key))
+                    except Exception as exc:  # noqa: BLE001  one facility's failure must not hide the others
+                        logger.warning("gateway projects from %s failed: %s", fac, exc)
         for alloc in allocations:
             if alloc.get("parent"):
                 continue
@@ -69,6 +78,9 @@ class AccountAdapter(ActivateAuthMixin, facility_adapter.FacilityAdapter):
 
     async def get_project_allocations(self, project: account_models.Project, user: User) -> list[account_models.ProjectAllocation]:
         rt = get_runtime()
+        fac, uid = split_id(project.id)
+        if fac and rt.gateway and fac in rt.gateway.upstreams:
+            return await rt.gateway.project_allocations(fac, uid, user.api_key)
         inv = await rt.inventory()
         cfg = rt.config.allocation
         allocations = await self._allocations_for(user)
