@@ -89,7 +89,7 @@ jobs:
           token:
             type: string
             label: Bearer token account variable
-            default: ${{ variables.IRI_TOKEN_ALCF }}
+            default: "${{ variables.IRI_TOKEN_ALCF }}"
             tooltip: Store the facility token as an account variable and reference it here.
           resource_name:
             type: string
@@ -106,7 +106,7 @@ jobs:
           name: { type: string, label: Job name, default: activate-iri-job }
           executable: { type: string, label: Executable, default: /bin/bash }
           arguments: { type: string, label: Arguments (space separated), default: "-c hostname" }
-          directory: { type: string, label: Working directory, default: /home/${{ user }} }
+          directory: { type: string, label: Working directory at the facility, default: "/tmp", tooltip: "Absolute path the job runs in and writes stdout to; use your home or scratch directory at the facility" }
           container_image: { type: string, label: Container image (optional), optional: true }
           node_count: { type: number, label: Nodes, default: 1 }
           processes_per_node: { type: number, label: Processes per node, default: 1 }

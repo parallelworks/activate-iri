@@ -184,7 +184,10 @@ class WorkflowExecutor(Executor):
                     break
             await asyncio.sleep(self.poll)
         logs = await _spawn([self.pw_bin, "workflows", "runs", "logs", "-o", "json", slug], None, 60)
-        text = "\n".join(step.get("log", "") if isinstance(step, dict) else str(step) for step in json.loads(logs.stdout or "[]"))
+        steps = json.loads(logs.stdout or "[]")
+        if isinstance(steps, dict):
+            steps = steps.get("steps") or steps.get("logs") or []
+        text = "\n".join((step.get("logs") or step.get("log") or "") if isinstance(step, dict) else str(step) for step in steps)
         return parse_marked_output(text, default_rc=0 if status == "completed" else 1)
 
 
