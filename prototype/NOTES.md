@@ -41,12 +41,15 @@ Gateway mode is on with ALCF, NERSC, ESnet East, and OLCF open as upstreams: the
 
 Tunnel outage (2026-08-30). The public session showed as stopped because `stop.sh` killed the reverse tunnel along with the endpoint during a restart and nothing republished it. `stop.sh` now leaves the tunnel running unless called with `--all`, `run.sh` republishes if needed, process checks are anchored to the binary path so a shell wrapper cannot be mistaken for the process, and `watch.sh` (detached, pid in `logs/watch.pid`) restarts the endpoint or the tunnel within a minute if either is down.
 
+Console and demo (2026-08-30). The endpoint now serves `/console/`, a same-origin page that shows the facilities behind it, resources, and open incidents from the public groups, and with an ACTIVATE credential pasted in the browser (session storage only) runs a job through the IRI API and follows it: whoami, mkdir through the task loop, submit, queued, active, completed, stdout through the filesystem download. Presets: GPU inventory (`nvidia-smi`), a CUDA container through Apptainer `--nv`, and a hostname check. The lab A30 host has an NVIDIA A30 and no Slurm gres configuration, so GPU passthrough for containers uses the `apptainer-nv` custom attribute instead of a `--gpus` directive. `demo_a30.sh` is the terminal version and prints every call with status and timing.
+
 Operations.
 
     ./run.sh          start the endpoint (idempotent)
     ./publish.sh      publish through pw endpoints (idempotent)
     ./smoke.sh        live end-to-end check, exits non-zero on failure
     ./stop.sh         stop the endpoint (add --all to stop the tunnel too)
+    ./demo_a30.sh     GPU inventory demo through the public endpoint (PRESET=container|hello)
     ./watch.sh        keepalive loop; run detached: nohup setsid ./watch.sh > logs/watch.log 2>&1 &
 
 Topology dashboard: `../iri-topology/serve.sh` publishes the facilities map at https://iri-topology.activate.pw/ with this endpoint as one of seven facilities.

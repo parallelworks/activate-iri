@@ -115,3 +115,9 @@ def test_filesystem_task_loop_and_shell_job(client, runtime, tmp_path):
     # storage locations resolve templates for this user
     locs = client.get(f"/api/v2/storage/locations/{rid}", headers=AUTH).json()
     assert any(l["logical_name"] == "home" and l["path"] == "/home/gtorok" for l in locs)
+
+
+def test_console_is_served(client, runtime):
+    from activate_iri import asgi  # noqa: F401  mounts /console on the shared APP
+    r = client.get("/console/")
+    assert r.status_code == 200 and "Facility console" in r.text

@@ -36,6 +36,8 @@ Run the reference implementation offline, no platform account needed:
 
     cd activate-iri && make venv && make test && make demo
 
+Every endpoint serves its own console at `/console/`: what it has stood up (facilities behind it, resources, open incidents) and a panel that drives the IRI API with the viewer's ACTIVATE credential, following a job from submission through the ACTIVATE workflow run to the cluster and back. The prototype's console is at https://activate-iri.activate.pw/console/; `prototype/demo_a30.sh` is the terminal version of the same demo against the lab A30 GPU server.
+
 Current prototype status is recorded in `prototype/NOTES.md`.
 
 License: MIT. Copyright (c) 2026 Parallel Works, Inc.

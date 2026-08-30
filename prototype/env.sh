@@ -13,6 +13,7 @@ export AMSC_PROJECT_MAPPING_FILE=/home/mattshax/amsc-design/prototype/amsc_proje
 export AMSC_TOKEN_ENABLED=false
 export API_URL_ROOT=https://activate-iri.activate.pw
 export API_URL=api/v2
+export ACTIVATE_IRI_PUBLIC_SCHEME=https   # tunnel forwards http; public URL is https
 export IRI_IDEMPOTENCY_STORE=activate_iri.idempotency.InMemoryIdempotencyStore
 export OPENTELEMETRY_ENABLED=false
 export LOG_LEVEL=INFO

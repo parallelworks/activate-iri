@@ -36,6 +36,7 @@ Runs beside the ACTIVATE control plane (Kubernetes manifest in `activate-iri/dep
 | `ACTIVATE_IRI_EXEC_WORKFLOW`, `ACTIVATE_IRI_PW_BIN` | `iri-exec`, path to `pw` | The workflow must exist on the platform (section 5) |
 | `ACTIVATE_IRI_SSH_CA_KEY`, `ACTIVATE_IRI_SSH_KEY`, `ACTIVATE_IRI_SSH_JUMP` | SSH executor | CA mode mints a 5 minute certificate per call |
 | `API_URL_ROOT`, `API_URL` | public URL, `api/v2` | Used in every `self_uri` |
+| `ACTIVATE_IRI_PUBLIC_SCHEME` | `https` | Pins the scheme in generated URIs when a tunnel or gateway forwards plain http |
 | `AMSC_TOKEN_ENABLED`, `AMSC_TOKEN_ISSUER`, `AMSC_TOKEN_AUDIENCE`, `AMSC_OIDC_DISCOVERY_URL`, `AMSC_PROJECT_MAPPING_FILE` | AmSC Keycards | Audience must equal the endpoint URL exactly and be registered with AmSC |
 | `IRI_IDEMPOTENCY_STORE` | `activate_iri.idempotency.InMemoryIdempotencyStore` or the Redis store | Redis for more than one replica |
 | `OPENTELEMETRY_ENABLED`, `OTLP_ENDPOINT` | telemetry | Forward to the AmSC operations collector |
@@ -94,6 +95,8 @@ Conformance (reports in `prototype/reports/`, not committed):
         --official-schema $D/specification-v2/openapi/all_spec_v2.yaml --compliance-json spec.compliance.json
     IRI_API_TOKEN=12345 $V/bin/python $D/verification/api-validator.py --baseurl http://127.0.0.1:8100 \
         --schema-url http://127.0.0.1:8100/openapi.json --max-examples 10
+
+Console and demo: every endpoint serves `/console/` (same origin, no extra hosting); `./demo_a30.sh` runs the GPU inventory demo from a terminal (`PRESET=container` runs `nvidia-smi` inside a CUDA container through Apptainer with `--nv`, set by the `apptainer-nv` custom attribute for clusters without Slurm gres).
 
 Topology dashboard: `iri-topology/serve.sh` starts the five-minute sweep and publishes `https://iri-topology.activate.pw/`.
 

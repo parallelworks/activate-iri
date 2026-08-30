@@ -65,3 +65,9 @@ def test_pbs_status_rc_file_fallback():
     sch = PBSScheduler()
     assert sch.parse_status("9.polaris", "\n9.polaris|RCFILE|0\n").state == JobState.COMPLETED
     assert '"$PBS_O_WORKDIR/rc"' in sch.script(spec())
+
+
+def test_apptainer_nv_without_gres_directive():
+    s = SlurmScheduler().script(spec(resources=cm.ResourceSpec(node_count=1), container=cm.Container(image="nvidia/cuda:12.4.1-base-ubuntu22.04"),
+                                     attributes=cm.JobAttributes(queue_name="debug", custom_attributes={"apptainer-nv": "true"})))
+    assert "apptainer exec --nv" in s and "--gpus-per-task" not in s and "--apptainer-nv" not in s
