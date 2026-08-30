@@ -5,42 +5,18 @@ How activate-iri exposes Parallel Works ACTIVATE as a DOE IRI Facility API v2 fa
 ## 1. The two modes and the gateway
 
 ```mermaid
-flowchart LR
-    subgraph AmSC["AmSC control plane"]
-        IRO["AmSC-IRO / AmSCROT<br/>(orchestrator, Airflow operators)"]
-        PING["AmSC identity<br/>(Keycard JWT)"]
-        MAG["Model Access Gateway"]
-    end
+flowchart TB
+    AMSC["AmSC orchestrator<br/>AmSC-IRO, AmSCROT, Airflow"]
+    USER["ACTIVATE user<br/>iri-job workflow, iri command"]
+    EP["activate-iri endpoint<br/>one IRI Facility API v2 for everything ACTIVATE reaches,<br/>with other facilities consolidated behind it"]
+    SYS["Systems ACTIVATE reaches, no IRI software on them<br/>lab clusters, existing and NeoCloud clusters,<br/>elastic cloud Slurm, partner sites via the edge kit"]
+    LABS["Facilities with their own IRI endpoints<br/>ALCF, NERSC, OLCF, ESnet"]
 
-    subgraph PW["Parallel Works"]
-        EP["activate-iri endpoint<br/>/api/v2 (IRI Facility API)"]
-        CP["ACTIVATE control plane<br/>clusters, allocations, workflows,<br/>agent heartbeat, AI gateway"]
-        WS["User workspace<br/>iri-job workflow, iri command"]
-    end
-
-    subgraph Systems["Systems ACTIVATE reaches"]
-        LAB["Lab cluster<br/>(agent, local execution)"]
-        EXIST["Existing / NeoCloud clusters<br/>(SSH or agent)"]
-        CLOUD["Elastic cloud Slurm clusters<br/>(AWS, Azure, GCP, OCI)"]
-        EDGE["Partner cluster with nothing deployed<br/>(edge kit: agent + reverse tunnel)"]
-    end
-
-    subgraph Labs["Lab facilities with IRI endpoints"]
-        ALCF["ALCF v1"]
-        NERSC["NERSC v1 and v2"]
-        OLCF["OLCF open / moderate"]
-        ESNET["ESnet East / West"]
-    end
-
-    IRO -- "mode 1: Keycard or ACTIVATE credential" --> EP
-    PING -. "JWKS, aud = endpoint URL" .-> EP
-    EP -- "inventory, allocations, usage events" --> CP
-    EP -- "iri-exec workflow runs" --> CP
-    CP --> LAB & EXIST & CLOUD & EDGE
-    EP -- "gateway: namespaced ids,<br/>forwarded calls with facility tokens" --> ALCF & NERSC & OLCF & ESNET
-    WS -- "mode 2: PSI/J jobs, filesystem task loop" --> ALCF & NERSC & OLCF & ESNET
-    WS -- "mode 2 via the PW endpoint" --> EP
-    MAG -. "OpenAI-compatible provider" .-> CP
+    AMSC -- "mode 1: AmSC calls in<br/>Keycard or ACTIVATE credential" --> EP
+    USER -- "mode 2: users call any facility<br/>through one URL" --> EP
+    USER -. "or directly" .-> LABS
+    EP -- "jobs and file operations run through the ACTIVATE API<br/>workflow runs, SSH, or local" --> SYS
+    EP -- "gateway: forwarded with the caller's facility token" --> LABS
 ```
 
 Mode 1 (outbound): AmSC and its orchestrator reach many ACTIVATE-connected systems through one endpoint, using the ACTIVATE API rather than facility-side software. Mode 2 (inbound): ACTIVATE users reach IRI facilities from their own account. Gateway mode: the same endpoint also fronts the lab facilities, so a client needs one base URL.

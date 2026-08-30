@@ -15,6 +15,8 @@ Parallel Works ACTIVATE as a DOE Integrated Research Infrastructure (IRI) facili
 
 ![Integration overview](docs/diagrams/overview.svg)
 
+Mode 1: AmSC reaches every system ACTIVATE operates through one endpoint, and the endpoint runs the work through the ACTIVATE API, so the systems need no IRI software. Mode 2: ACTIVATE users call any IRI facility from their account, through the same endpoint or directly. Gateway: facilities that run their own IRI endpoint are consolidated behind the PW endpoint, so a client needs one URL.
+
 Run the reference implementation offline, no platform account needed:
 
     cd activate-iri && make venv && make test && make demo
