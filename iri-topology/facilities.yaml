@@ -7,41 +7,52 @@ monitor_label: ACTIVATE IRI federation view
 facilities:
   - id: alcf
     name: Argonne Leadership Computing Facility
+    short: ALCF
     base_url: https://api.alcf.anl.gov/api/v1
     scheduler: PBS
     default_site: { lat: 41.71, lon: -87.98, location: "Lemont, IL" }
   - id: nersc
     name: National Energy Research Scientific Computing Center
+    short: NERSC
+    exclude_names: [login]
+    rename: { compute: Perlmutter compute, cori: Cori }
     base_url: https://api.iri.nersc.gov/api/v2
     scheduler: SLURM
     default_site: { lat: 37.88, lon: -122.25, location: "Berkeley, CA" }
   - id: esnet-east
     name: ESnet Facility East
+    short: ESnet East
+    rename: { "Low Priority compute": Preemptible compute }
     base_url: https://iri-dev.ppg.es.net/api/v1
     scheduler: SLURM
     default_site: { lat: 39.04, lon: -77.49, location: "AWS us-east-1, Ashburn, VA", cloud: true }
   - id: esnet-west
     name: ESnet Facility West
+    short: ESnet West
+    rename: { "Low Priority compute": Preemptible compute }
     base_url: https://esnet-west.sdn-sense.net/api/v1
     scheduler: SLURM
     default_site: { lat: 45.84, lon: -119.70, location: "AWS us-west-2, Boardman, OR", cloud: true }
   - id: olcf-open
     name: Oak Ridge Leadership Computing Facility (open enclave)
+    short: OLCF open
     base_url: https://amsc-open.s3m.olcf.ornl.gov/api/v1
     scheduler: SLURM
     default_site: { lat: 35.93, lon: -84.31, location: "Oak Ridge, TN" }
   - id: olcf-moderate
     name: Oak Ridge Leadership Computing Facility (moderate enclave)
+    short: OLCF moderate
     base_url: https://amsc-moderate.s3m.olcf.ornl.gov/api/v1
     scheduler: SLURM
     default_site: { lat: 35.95, lon: -84.29, location: "Oak Ridge, TN" }
   - id: pw
     name: Parallel Works ACTIVATE
+    short: ACTIVATE
     base_url: http://127.0.0.1:8100/api/v2       # the prototype endpoint on this host; use https://activate-iri.activate.pw/api/v2 elsewhere
     scheduler: SLURM
     default_site: { lat: 41.89, lon: -87.64, location: "Chicago, IL" }
     sites:
-      PW-LAB: { lat: 41.89, lon: -87.64, location: "Chicago, IL", name: "Parallel Works lab, Chicago" }
+      PW-LAB: { lat: 41.89, lon: -87.64, location: "Chicago, IL", name: "ACTIVATE lab" }
       CLOUD-AWS: { lat: 39.04, lon: -77.49, location: "AWS us-east-1", cloud: true, name: "ACTIVATE on AWS" }
       CLOUD-GCP: { lat: 41.26, lon: -95.86, location: "Google us-central1", cloud: true, name: "ACTIVATE on Google Cloud" }
       CLOUD-AZURE: { lat: 37.37, lon: -79.80, location: "Azure eastus", cloud: true, name: "ACTIVATE on Azure" }

@@ -13,4 +13,4 @@ flowchart LR
 
     ./serve.sh        # sweeps every 5 minutes and publishes web/ at https://iri-topology.activate.pw/
 
-Facilities configured today: ALCF, NERSC, ESnet East and West, OLCF open and moderate enclaves, and the ACTIVATE prototype endpoint. Add a facility by appending its base URL and default coordinates.
+Facilities configured today: ALCF, NERSC, ESnet East and West, OLCF open and moderate enclaves, and the ACTIVATE prototype endpoint. Add a facility by appending its base URL and default coordinates. Per facility, `short` sets the map label, `exclude_names` hides resources that are not systems, and `rename` shortens labels. A facility that itself runs in gateway mode is read for its own resources only; the consolidated copies of other facilities are skipped so nothing appears twice.

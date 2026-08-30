@@ -47,6 +47,9 @@ class Facility:
         self.site_overrides = cfg.get("sites", {})
         self.default_site = cfg.get("default_site", {})
         self.include_types = set(cfg.get("include_types", ["compute", "service:inference"]))
+        self.short = cfg.get("short")                      # label prefix for sites; falls back to the facility's short_name
+        self.exclude_names = set(cfg.get("exclude_names", []))
+        self.rename = cfg.get("rename", {})
 
     def fetch(self, client: httpx.Client) -> dict:
         t0 = time.monotonic()
@@ -75,8 +78,10 @@ def site_record(fac: Facility, site: dict) -> dict:
     lat = site.get("latitude") or override.get("lat") or fac.default_site.get("lat")
     lon = site.get("longitude") or override.get("lon") or fac.default_site.get("lon")
     loc = ", ".join(x for x in [site.get("locality_name"), site.get("state_or_province_name")] if x) or override.get("location") or fac.default_site.get("location", "")
+    short = fac.short or (fac_short if (fac_short := getattr(fac, "facility_short", None)) else None) or fac.id.upper()
+    site_label = override.get("name") or (short if len(fac.site_overrides) == 0 and len(getattr(fac, "site_count", [1])) <= 1 else f"{short} {site.get('short_name') or site.get('name') or ''}".strip())
     return {
-        "id": site_id, "name": override.get("name") or f"{fac.name}: {site.get('name') or key}", "organization": site.get("operating_organization") or fac.name,
+        "id": site_id, "name": site_label, "organization": site.get("operating_organization") or fac.name,
         "location": loc, "lat": lat, "lon": lon, "cloud": bool(override.get("cloud", fac.default_site.get("cloud", False))),
         "systems": 0, "connected": 0, "status": "UNKNOWN", "capacity": {"cores_total": 0, "cores_running": 0}, "members": [], "node_id": f"site:{site_id}",
         "iri_site_uri": site.get("self_uri"), "facility": fac.id,
@@ -102,10 +107,18 @@ def system_node(fac: Facility, res: dict, site: dict, incidents: list[dict], con
         capacity["nodes_total"] = int(attrs["configured_node_count"])
     if attrs.get("configured_gpu_count"):
         capacity["gpus_total"] = int(attrs["configured_gpu_count"])
+    label = fac.rename.get(res.get("name") or "", res.get("name") or slug)
+    if len(label) > 24:
+        label = label[:23] + "…"
+    sub_bits = [scheduler or rtype.split(":")[0]]
+    if attrs.get("configured_node_count"):
+        sub_bits.append(f"{int(attrs['configured_node_count'])} nodes")
+    elif attrs.get("configured_gpu_count"):
+        sub_bits.append(f"{int(attrs['configured_gpu_count'])} GPUs")
     return {
-        "id": f"sys:{slug}", "kind": "system", "label": res.get("name") or slug, "slug": slug, "site": site["id"], "site_label": site["name"],
+        "id": f"sys:{slug}", "kind": "system", "label": label, "full_name": res.get("name"), "slug": slug, "site": site["id"], "site_label": site["name"],
         "status": status, "reported_status": res.get("current_status"), "status_source": "status page", "scheduler": scheduler,
-        "login": fac.base.split("//", 1)[-1].split("/")[0], "address": None, "origin": "fleet", "resource_type": rtype,
+        "login": fac.base.split("//", 1)[-1].split("/")[0], "address": " · ".join(sub_bits), "origin": "fleet", "resource_type": rtype,
         "endpoints": res.get("supported_endpoints") or [], "iri_uri": res.get("self_uri"), "description": res.get("description"),
         "connected": connected, "connection": {
             "source": "iri", "uri": fac.base, "capabilities": groups, "connected_since": observed, "connected_for_seconds": 0,
@@ -134,13 +147,20 @@ def build(config: dict, timeout: float = 20.0) -> dict:
             facilities_meta.append({"id": fac.id, "name": fac.name, "base_url": fac.base, "connected": connected, "error": error, "latency_ms": data["latency_ms"],
                                     "groups": data["groups"], "facility_name": data["facility"].get("name"), "resources": len(data["resources"])})
             site_by_uri: dict[str, dict] = {}
-            for s in data["sites"] or [dict(id=fac.id, name=fac.name)]:
+            own_sites = [s for s in (data["sites"] or []) if ":" not in str(s.get("id", ""))]
+            fac.facility_short = data["facility"].get("short_name")
+            fac.site_count = own_sites
+            for s in own_sites or [dict(id=fac.id, name=fac.name)]:
                 rec = site_record(fac, s)
                 sites.setdefault(rec["id"], rec)
                 site_by_uri[s.get("self_uri") or s.get("id") or fac.id] = sites[rec["id"]]
-            if not data["sites"]:
+            if not own_sites:
                 site_by_uri[fac.id] = sites[site_record(fac, dict(id=fac.id, name=fac.name))["id"]]
             for res in data["resources"]:
+                if ":" in str(res.get("id", "")) or (res.get("attributes") or {}).get("iri_upstream_facility"):
+                    continue   # consolidated upstream resource; its own facility entry already covers it
+                if (res.get("name") or "") in fac.exclude_names:
+                    continue
                 rtype = short_type(res.get("resource_type", ""))
                 if not any(rtype == t or rtype.startswith(t + ":") for t in fac.include_types):
                     continue

@@ -204,7 +204,7 @@ class InventoryBuilder:
             for cap_id in caps:
                 capability_resource[cap_id] = rid
             resource = status_models.Resource(
-                id=rid, site_id=site.id, name=cluster.get("displayName") or cluster["name"],
+                id=rid, site_id=site.id, name=inv.display_names.get(cluster["name"]) or cluster.get("displayName") or cluster["name"],
                 description=self._describe(merged), last_modified=now(), group=self._group(merged),
                 current_status=cluster_status(merged, inv.elastic_status), resource_type=ResourceType.compute_system,
                 supported_endpoints=self._endpoints_for(cluster), capability_ids=list(caps), attributes=self._compute_attributes(merged),
