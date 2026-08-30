@@ -1,33 +1,24 @@
 digraph activate_iri {
-  graph [rankdir=LR, fontname="Helvetica", fontsize=11, nodesep=0.35, ranksep=0.7, bgcolor="white"];
-  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, fillcolor="#F6F7F9", color="#5B6470"];
-  edge  [fontname="Helvetica", fontsize=9, color="#5B6470"];
+  graph [rankdir=TB, fontname="Helvetica", fontsize=11, nodesep=0.6, ranksep=0.9, bgcolor="white", splines=true];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#F6F7F9", color="#5B6470", margin="0.25,0.14"];
+  edge  [fontname="Helvetica", fontsize=10, color="#5B6470"];
 
-  subgraph cluster_amsc { label="AmSC control plane"; style="rounded"; color="#9AA3AF";
-    iro   [label="AmSC-IRO / AmSCROT\norchestrator, Airflow operators"];
-    ping  [label="AmSC identity\nKeycard JWT"];
-    mag   [label="Model Access Gateway"];
-  }
-  subgraph cluster_pw { label="Parallel Works"; style="rounded"; color="#1967D2";
-    ep    [label="activate-iri endpoint\n/api/v2  IRI Facility API", fillcolor="#E8F0FE", color="#1967D2", penwidth=1.6];
-    cp    [label="ACTIVATE control plane\nclusters, allocations, workflows,\nagent heartbeat, AI gateway"];
-    ws    [label="User workspace\niri-job workflow, iri command"];
-  }
-  subgraph cluster_sys { label="Systems ACTIVATE reaches (host no IRI software)"; style="rounded"; color="#9AA3AF";
-    lab   [label="Lab cluster\nlocal execution"];
-    exist [label="Existing / NeoCloud clusters\nSSH or agent"];
-    cloud [label="Elastic cloud Slurm\nAWS, Azure, GCP, OCI"];
-    partner [label="Partner cluster, nothing deployed\nedge kit: agent + reverse tunnel"];
-  }
-  subgraph cluster_labs { label="Lab facilities with IRI endpoints"; style="rounded"; color="#1E7F5C";
-    alcf  [label="ALCF v1"]; nersc [label="NERSC v1, v2"]; olcf [label="OLCF open / moderate"]; esnet [label="ESnet East / West"];
-  }
+  amsc [label="AmSC orchestrator\n(AmSC-IRO, AmSCROT, Airflow)", fillcolor="#EEF1F5"];
+  user [label="ACTIVATE user\n(iri-job workflow, iri command)", fillcolor="#EEF1F5"];
 
-  iro  -> ep   [label="mode 1: Keycard or\nACTIVATE credential", color="#1967D2", penwidth=1.4];
-  ping -> ep   [label="JWKS, aud = endpoint URL", style=dashed];
-  ep   -> cp   [label="inventory, allocations,\nusage events; iri-exec runs", color="#1967D2", penwidth=1.4];
-  cp   -> lab; cp -> exist; cp -> cloud; cp -> partner;
-  ep   -> alcf [label="gateway: namespaced ids,\nforwarded calls", color="#1E7F5C"]; ep -> nersc [color="#1E7F5C"]; ep -> olcf [color="#1E7F5C"]; ep -> esnet [color="#1E7F5C"];
-  ws   -> alcf [label="mode 2: PSI/J jobs,\nfilesystem task loop", color="#1E7F5C"]; ws -> ep [label="mode 2 via PW endpoint", color="#1E7F5C"];
-  mag  -> cp   [label="OpenAI-compatible provider", style=dashed];
+  ep [label="activate-iri endpoint\nhttps://iri.activate.pw/api/v2\n\nOne IRI Facility API (v2) for everything ACTIVATE reaches,\nwith other facilities consolidated behind it",
+      fillcolor="#E8F0FE", color="#1967D2", penwidth=1.8];
+
+  systems [label="Systems ACTIVATE reaches (no IRI software on them)\nlab clusters  |  existing and NeoCloud clusters  |  elastic cloud Slurm  |  partner sites via the edge kit",
+           color="#1967D2"];
+  labs [label="Facilities with their own IRI endpoints\nALCF  |  NERSC  |  OLCF  |  ESnet", color="#1E7F5C"];
+
+  { rank=same; amsc; user; }
+  { rank=same; systems; labs; }
+
+  amsc -> ep   [label="  mode 1: AmSC calls in\n  (Keycard or ACTIVATE credential)", color="#1967D2", penwidth=1.6];
+  user -> ep   [label="  mode 2: users call any facility\n  through one URL", color="#1E7F5C", penwidth=1.6];
+  user -> labs [label="  or directly", style=dashed, color="#1E7F5C"];
+  ep -> systems [label="  jobs and file operations run\n  through the ACTIVATE API\n  (workflow runs, SSH, or local)", color="#1967D2", penwidth=1.6];
+  ep -> labs   [label="  gateway: forwarded with\n  the caller's facility token", color="#1E7F5C", penwidth=1.6];
 }
