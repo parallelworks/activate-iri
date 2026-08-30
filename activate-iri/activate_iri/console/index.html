@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRI Facility Console</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root { --ground:#F6F7F9; --surface:#FFFFFF; --ink:#1B2430; --muted:#5B6470; --rule:#D9DEE5; --accent:#1967D2; --accent-soft:#E8F0FE; --green:#1E7F5C; --green-soft:#E6F4EE; --amber:#B06A00; --amber-soft:#FFF3DF; --red:#B3261E; --red-soft:#FCE8E6; --code:#EEF1F5; }
+  @media (prefers-color-scheme: dark) { :root { --ground:#0E1319; --surface:#151C24; --ink:#E7ECF1; --muted:#98A3AF; --rule:#2A3440; --accent:#79ADF5; --accent-soft:#1B2B44; --green:#56C69C; --green-soft:#15302A; --amber:#E0A040; --amber-soft:#3A2A12; --red:#F28B82; --red-soft:#3A1F1D; --code:#1C242E; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:"Public Sans", system-ui, sans-serif; font-size:15px; line-height:1.5; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  code, .mono, pre { font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.86em; }
+  .page { max-width:1180px; margin:0 auto; padding:1.5rem 1.25rem 4rem; }
+  header { display:grid; gap:.4rem; padding-bottom:1rem; border-bottom:1px solid var(--rule); }
+  .eyebrow { font-size:.74rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  h1 { margin:0; font-size:1.7rem; font-weight:600; letter-spacing:-.01em; }
+  h2 { margin:2rem 0 .6rem; font-size:1.15rem; font-weight:600; }
+  .sub { color:var(--muted); max-width:80ch; margin:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.5rem; }
+  .chip { display:inline-flex; align-items:center; gap:.4rem; padding:.22rem .6rem; border-radius:999px; border:1px solid var(--rule); background:var(--surface); font-size:.8rem; font-variant-numeric:tabular-nums; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; }
+  .dot.amber { background:var(--amber);} .dot.red { background:var(--red);} .dot.muted { background:var(--muted);}
+  .grid { display:grid; grid-template-columns:1fr; gap:1rem; } @media (min-width:900px){ .grid { grid-template-columns:1.1fr .9fr; } }
+  .card { background:var(--surface); border:1px solid var(--rule); border-radius:6px; padding:1rem 1.1rem; }
+  .card h3 { margin:0 0 .5rem; font-size:.95rem; font-weight:600; }
+  table { border-collapse:collapse; width:100%; font-size:.86rem; }
+  th, td { text-align:left; padding:.4rem .55rem; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  tr:last-child td { border-bottom:0; }
+  .tablewrap { overflow-x:auto; }
+  .status { display:inline-block; padding:.1rem .45rem; border-radius:4px; font-size:.75rem; font-weight:600; }
+  .status.up { background:var(--green-soft); color:var(--green);} .status.down { background:var(--red-soft); color:var(--red);} .status.degraded { background:var(--amber-soft); color:var(--amber);} .status.unknown { background:var(--code); color:var(--muted);}
+  label { display:block; font-size:.78rem; font-weight:600; color:var(--muted); margin:.6rem 0 .2rem; }
+  input, select, textarea { width:100%; padding:.45rem .55rem; border:1px solid var(--rule); border-radius:4px; background:var(--ground); color:var(--ink); font:inherit; }
+  textarea { min-height:5.5rem; font-family:"IBM Plex Mono", monospace; font-size:.82rem; }
+  button { font:inherit; font-weight:600; padding:.5rem .9rem; border-radius:4px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:var(--surface); color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:.6rem; flex-wrap:wrap; align-items:end; }
+  .row > * { flex:1 1 160px; }
+  pre.out { background:var(--code); border:1px solid var(--rule); border-radius:4px; padding:.7rem .8rem; overflow-x:auto; max-height:22rem; margin:.5rem 0 0; white-space:pre-wrap; }
+  .timeline { display:flex; gap:.35rem; flex-wrap:wrap; margin:.6rem 0; }
+  .step { padding:.25rem .55rem; border-radius:999px; border:1px solid var(--rule); font-size:.78rem; color:var(--muted); }
+  .step.active { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .step.done { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .step.failed { border-color:var(--red); color:var(--red); background:var(--red-soft); }
+  .log { font-family:"IBM Plex Mono", monospace; font-size:.78rem; max-height:16rem; overflow:auto; border:1px solid var(--rule); border-radius:4px; background:var(--code); padding:.5rem .7rem; }
+  .log div { display:grid; grid-template-columns:5rem 4rem 1fr 4.5rem; gap:.5rem; padding:.1rem 0; border-bottom:1px dashed var(--rule); }
+  .log .m { color:var(--accent); font-weight:600; } .log .s { text-align:right; font-variant-numeric:tabular-nums; }
+  .log .ok { color:var(--green);} .log .err { color:var(--red);}
+  .path { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; margin:.5rem 0 .2rem; }
+  .path div { border:1px solid var(--rule); border-radius:4px; padding:.35rem .5rem; font-size:.76rem; text-align:center; color:var(--muted); background:var(--surface); }
+  .path div.lit { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  small.hint { color:var(--muted); font-size:.78rem; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow">DOE IRI Facility API v2</div>
+    <h1 id="facility-name">Facility console</h1>
+    <p class="sub" id="facility-desc"></p>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <h2>What this endpoint has stood up</h2>
+      <div class="card">
+        <h3>Facilities behind this endpoint</h3>
+        <div class="tablewrap"><table id="facilities"><thead><tr><th>Facility</th><th>Resources</th><th>Compute</th><th>Up</th><th>Open incidents</th></tr></thead><tbody></tbody></table></div>
+        <small class="hint">Resources with a namespaced id (facility:id) are consolidated from that facility's own IRI endpoint; plain ids are ACTIVATE systems.</small>
+      </div>
+      <h2>Resources</h2>
+      <div class="card">
+        <div class="row"><div><label>Filter</label><input id="filter" placeholder="name, type, site, status"></div></div>
+        <div class="tablewrap" style="margin-top:.6rem"><table id="resources"><thead><tr><th>Status</th><th>Name</th><th>Type</th><th>Site</th><th>Endpoints</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <h2>Open incidents</h2>
+      <div class="card"><div class="tablewrap"><table id="incidents"><thead><tr><th>Status</th><th>Name</th><th>Type</th><th>Since</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+
+    <div>
+      <h2>Run it</h2>
+      <div class="card">
+        <h3>Submit a job through the IRI API with your ACTIVATE credential</h3>
+        <label>ACTIVATE API key or token (kept in this browser session only)</label>
+        <input id="token" type="password" placeholder="pwt_... or platform token">
+        <div class="row" style="margin-top:.4rem">
+          <div><label>Compute resource</label><select id="resource"></select></div>
+          <div><label>Preset</label><select id="preset">
+            <option value="gpu">GPU inventory (nvidia-smi)</option>
+            <option value="container">CUDA container check (apptainer --nv)</option>
+            <option value="hello">Hostname and date</option>
+          </select></div>
+        </div>
+        <label>Working directory on the cluster</label>
+        <input id="dir" placeholder="/home/you/iri-demo">
+        <label>PSI/J JobSpec (edit if you like)</label>
+        <textarea id="spec"></textarea>
+        <div class="row" style="margin-top:.7rem">
+          <button id="whoami" class="secondary">Check credential</button>
+          <button id="run">Submit and follow</button>
+        </div>
+        <div class="path" id="path"><div>client</div><div>IRI endpoint</div><div>ACTIVATE workflow run</div><div>cluster scheduler</div></div>
+        <div class="timeline" id="timeline"></div>
+        <pre class="out" id="out">Output appears here.</pre>
+      </div>
+      <h2>Request log</h2>
+      <div class="card"><div class="log" id="log"></div></div>
+      <h2>My projects</h2>
+      <div class="card"><div class="tablewrap"><table id="projects"><thead><tr><th>Project</th><th>Allocation</th><th>Used</th><th>Unit</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:2rem">OpenAPI: <a href="../api/v2/openapi.json">/api/v2/openapi.json</a>. Docs: <a href="../api/v2">/api/v2</a>. Source: <a href="https://github.com/parallelworks/activate-iri">parallelworks/activate-iri</a>.</p>
+</div>
+<script>
+(() => {
+  const BASE = new URL("../api/v2/", window.location.href).toString().replace(/\/$/, "");
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const token = () => $("token").value.trim() || sessionStorage.getItem("iri-console-token") || "";
+  $("token").value = sessionStorage.getItem("iri-console-token") || "";
+  $("token").addEventListener("change", () => sessionStorage.setItem("iri-console-token", $("token").value.trim()));
+
+  const logEl = $("log");
+  const log = (method, path, status, ms, ok) => {
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="m">${esc(method)}</span><span class="${ok ? "ok" : "err"}">${esc(status)}</span><span>${esc(path)}</span><span class="s">${ms} ms</span>`;
+    logEl.prepend(d);
+  };
+  const lit = (n) => { [...$("path").children].forEach((el, i) => el.classList.toggle("lit", i <= n)); };
+
+  async function api(method, path, { body, auth = false, params } = {}) {
+    const url = new URL(BASE + path);
+    if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    const headers = { "Accept": "application/json" };
+    if (auth) headers["Authorization"] = "Bearer " + token();
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const t0 = performance.now();
+    const r = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    const ms = Math.round(performance.now() - t0);
+    log(method, path, r.status, ms, r.ok);
+    let data = null; try { data = await r.json(); } catch {}
+    if (!r.ok) throw new Error(`${r.status} ${data?.detail || data?.title || ""}`.trim());
+    return data;
+  }
+  const shortType = (u) => (u || "").replace("urn:doe-iri:resource:", "").replace("urn:doe-iri:", "");
+  const statusPill = (s) => `<span class="status ${esc(s || "unknown")}">${esc(s || "unknown")}</span>`;
+
+  let RES = [], SITES = {};
+  async function load() {
+    const fac = await api("GET", "/facility");
+    $("facility-name").textContent = fac.name || "Facility";
+    $("facility-desc").textContent = fac.description || "";
+    const sites = await api("GET", "/facility/sites");
+    sites.forEach((s) => { SITES[s.self_uri] = s; SITES[s.id] = s; });
+    RES = await api("GET", "/status/resources", { params: { limit: 500 } });
+    let incidents = [];
+    try { incidents = await api("GET", "/status/incidents", { params: { resolution: "unresolved", limit: 100 } }); } catch {}
+    if (!Array.isArray(incidents)) incidents = [];
+    let ops = 0; try { const o = await fetch(new URL("../api/v2/openapi.json", location.href)).then(r => r.json()); ops = Object.values(o.paths || {}).reduce((n, m) => n + Object.keys(m).length, 0); } catch {}
+    const up = RES.filter(r => r.current_status === "up").length;
+    $("chips").innerHTML = [
+      `<span class="chip"><span class="dot"></span>${RES.length} resources, ${up} up</span>`,
+      `<span class="chip"><span class="dot"></span>${sites.length} sites</span>`,
+      `<span class="chip"><span class="dot ${incidents.length ? "amber" : ""}"></span>${incidents.length} open incidents</span>`,
+      ops ? `<span class="chip"><span class="dot"></span>${ops} operations served</span>` : "",
+      `<span class="chip"><span class="dot muted"></span>${fac.short_name || fac.id}</span>`,
+    ].join("");
+
+    const byFac = {};
+    RES.forEach((r) => {
+      const f = r.id.includes(":") ? r.id.split(":")[0] : (fac.short_name || "ACTIVATE");
+      byFac[f] = byFac[f] || { n: 0, compute: 0, up: 0, inc: 0 };
+      byFac[f].n++; if ((r.supported_endpoints || []).includes("compute")) byFac[f].compute++; if (r.current_status === "up") byFac[f].up++;
+    });
+    incidents.forEach((i) => { const f = i.id.includes(":") ? i.id.split(":")[0] : (fac.short_name || "ACTIVATE"); if (byFac[f]) byFac[f].inc++; });
+    $("facilities").querySelector("tbody").innerHTML = Object.entries(byFac).map(([f, v]) => `<tr><td><b>${esc(f)}</b></td><td>${v.n}</td><td>${v.compute}</td><td>${v.up}</td><td>${v.inc}</td></tr>`).join("");
+
+    const renderRes = () => {
+      const q = $("filter").value.toLowerCase();
+      $("resources").querySelector("tbody").innerHTML = RES
+        .map((r) => ({ r, site: (SITES[r.site_uri] || {}).short_name || (SITES[r.site_uri] || {}).name || "" }))
+        .filter(({ r, site }) => !q || `${r.name} ${shortType(r.resource_type)} ${site} ${r.current_status}`.toLowerCase().includes(q))
+        .map(({ r, site }) => `<tr><td>${statusPill(r.current_status)}</td><td>${esc(r.name)}<br><span class="mono" style="color:var(--muted)">${esc(r.id)}</span></td><td>${esc(shortType(r.resource_type))}</td><td>${esc(site)}</td><td>${esc((r.supported_endpoints || []).join(", "))}</td></tr>`).join("");
+    };
+    renderRes(); $("filter").addEventListener("input", renderRes);
+    $("incidents").querySelector("tbody").innerHTML = incidents.length ? incidents.slice(0, 50).map((i) => `<tr><td>${statusPill(i.status)}</td><td>${esc(i.name)}<br><span style="color:var(--muted)">${esc((i.description || "").slice(0, 120))}</span></td><td>${esc(i.type)}</td><td class="mono">${esc((i.start || "").slice(0, 16))}</td></tr>`).join("") : `<tr><td colspan="4" style="color:var(--muted)">none</td></tr>`;
+
+    const compute = RES.filter((r) => (r.supported_endpoints || []).includes("compute"));
+    $("resource").innerHTML = compute.map((r) => `<option value="${esc(r.id)}" ${/a30/i.test(r.name) ? "selected" : ""}>${esc(r.name)}${r.id.includes(":") ? " (" + r.id.split(":")[0] + ")" : ""}</option>`).join("");
+    fillSpec();
+  }
+
+  const PRESETS = {
+    gpu: { name: "iri-gpu-inventory", executable: "/bin/bash", arguments: ["-c", "hostname; nvidia-smi --query-gpu=name,memory.total,utilization.gpu --format=csv"] },
+    container: { name: "iri-cuda-container", container: { image: "docker://nvidia/cuda:12.4.1-base-ubuntu22.04" }, executable: "nvidia-smi", arguments: [], custom: { "apptainer-nv": "true" } },
+    hello: { name: "iri-hello", executable: "/bin/bash", arguments: ["-c", "hostname; date -u; echo hello from the IRI API"] },
+  };
+  function fillSpec() {
+    const p = PRESETS[$("preset").value];
+    const dir = $("dir").value.trim() || "/tmp/iri-demo";
+    const spec = { executable: p.executable, arguments: p.arguments, name: p.name, directory: dir,
+      stdout_path: `${dir}/${p.name}.out`, stderr_path: `${dir}/${p.name}.err`,
+      resources: { node_count: 1, process_count: 1, exclusive_node_use: false },
+      attributes: { duration: 600, queue_name: "debug", custom_attributes: p.custom || {} } };
+    if (p.container) spec.container = p.container;
+    $("spec").value = JSON.stringify(spec, null, 2);
+  }
+  $("preset").addEventListener("change", fillSpec); $("dir").addEventListener("change", fillSpec);
+
+  const steps = ["whoami", "mkdir", "submit", "queued", "active", "completed", "stdout"];
+  const setStep = (name, cls) => { const el = [...$("timeline").children].find((e) => e.dataset.s === name); if (el) el.className = "step " + cls; };
+  const resetTimeline = () => { $("timeline").innerHTML = steps.map((s) => `<span class="step" data-s="${s}">${s}</span>`).join(""); lit(-1); };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function waitTask(uri) {
+    for (let i = 0; i < 90; i++) {
+      const r = await fetch(uri, { headers: { Authorization: "Bearer " + token() } }); const t = await r.json();
+      if (["completed", "failed", "canceled"].includes(t.status)) return t;
+      await sleep(1500);
+    }
+    throw new Error("task timed out");
+  }
+
+  $("whoami").addEventListener("click", async () => {
+    try {
+      const me = await api("GET", "/account/whoami", { auth: true });
+      $("out").textContent = `Authenticated as ${me.username}`;
+      const projects = await api("GET", "/account/projects", { auth: true });
+      const rows = [];
+      for (const p of projects.slice(0, 12)) {
+        let pas = []; try { pas = await api("GET", `/account/projects/${p.id}/project_allocations`, { auth: true }); } catch {}
+        const e = pas[0]?.entries?.[0];
+        rows.push(`<tr><td>${esc(p.name)}</td><td>${e ? e.allocation : ""}</td><td>${e ? e.usage : ""}</td><td class="mono">${esc(e ? e.unit.replace("urn:doe-iri:allocation:", "") : "")}</td></tr>`);
+      }
+      $("projects").querySelector("tbody").innerHTML = rows.join("") || `<tr><td colspan="4" style="color:var(--muted)">none</td></tr>`;
+    } catch (e) { $("out").textContent = "Credential check failed: " + e.message; }
+  });
+
+  $("run").addEventListener("click", async () => {
+    const rid = $("resource").value; if (!token()) { $("out").textContent = "Paste an ACTIVATE credential first."; return; }
+    const spec = JSON.parse($("spec").value); $("run").disabled = true; resetTimeline(); $("out").textContent = "";
+    try {
+      setStep("whoami", "active"); lit(1); const me = await api("GET", "/account/whoami", { auth: true }); setStep("whoami", "done");
+      setStep("mkdir", "active"); lit(2); const mk = await api("POST", `/filesystem/mkdir/${rid}`, { auth: true, body: { path: spec.directory, parent: true } });
+      const mt = await waitTask(mk.task_uri); if (mt.status !== "completed") throw new Error("mkdir failed: " + JSON.stringify(mt.result)); setStep("mkdir", "done");
+      setStep("submit", "active"); lit(3);
+      const job = await api("POST", `/compute/job/${rid}`, { auth: true, body: spec });
+      setStep("submit", "done"); $("out").textContent = `Job ${job.id} submitted by ${me.username}\n`;
+      let state = job.status?.state || "queued";
+      for (let i = 0; i < 200; i++) {
+        if (state === "queued" || state === "new") { setStep("queued", "active"); }
+        if (state === "active") { setStep("queued", "done"); setStep("active", "active"); }
+        if (["completed", "failed", "canceled"].includes(state)) break;
+        await sleep(3000);
+        const s = await api("GET", `/compute/status/${rid}/${job.id}`, { auth: true, params: { historical: "true" } });
+        state = s.status?.state || state; $("out").textContent += `${new Date().toISOString().slice(11, 19)} ${state}\n`;
+      }
+      setStep("queued", "done"); setStep("active", "done"); setStep("completed", state === "completed" ? "done" : "failed");
+      setStep("stdout", "active");
+      const dl = await api("POST", `/filesystem/download/${rid}`, { auth: true, body: { path: spec.stdout_path } });
+      const dt = await waitTask(dl.task_uri);
+      if (dt.status === "completed") { setStep("stdout", "done"); $("out").textContent += "\n--- stdout ---\n" + atob(dt.result.output); }
+      else { setStep("stdout", "failed"); $("out").textContent += "\nstdout unavailable: " + JSON.stringify(dt.result); }
+      lit(3);
+    } catch (e) { $("out").textContent += "\nFailed: " + e.message; [...$("timeline").children].forEach((el) => { if (el.classList.contains("active")) el.className = "step failed"; }); }
+    finally { $("run").disabled = false; }
+  });
+
+  resetTimeline();
+  load().catch((e) => { $("facility-desc").textContent = "Could not load the facility: " + e.message; });
+})();
+</script>
+</body>
+</html>

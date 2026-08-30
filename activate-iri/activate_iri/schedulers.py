@@ -41,8 +41,13 @@ def _mem_mb(memory_bytes: int) -> int:
 
 
 def render_command(spec: compute_models.JobSpec, gpu: bool) -> str:
-    """The command line that runs the user's work: bare executable, or apptainer-wrapped container."""
+    """The command line that runs the user's work: bare executable, or apptainer-wrapped container.
+
+    GPU passthrough (--nv) follows gpu_cores_per_process, or the custom attribute apptainer-nv=true
+    for clusters that have GPUs but no scheduler gres configuration (no --gpus directive wanted)."""
     args = " ".join(shlex.quote(a) for a in spec.arguments)
+    if spec.attributes and (spec.attributes.custom_attributes or {}).get("apptainer-nv", "").lower() in ("true", "1", "yes"):
+        gpu = True
     if spec.container:
         mounts = " ".join(
             f"--bind {shlex.quote(v.source)}:{shlex.quote(v.target)}{':ro' if v.read_only else ''}" for v in spec.container.volume_mounts
@@ -167,6 +172,8 @@ class SlurmScheduler(Scheduler):
             if a.reservation_id:
                 d.append(f"#SBATCH --reservation={shlex.quote(a.reservation_id)}")
             for key, value in (a.custom_attributes or {}).items():
+                if key.startswith("apptainer-"):
+                    continue   # consumed by render_command, not a scheduler directive
                 d.append(f"#SBATCH --{key}={shlex.quote(value)}" if value else f"#SBATCH --{key}")
         elif default_account:
             d.append(f"#SBATCH --account={shlex.quote(default_account)}")
@@ -299,6 +306,8 @@ class PBSScheduler(Scheduler):
             if a.account or default_account:
                 d.append(f"#PBS -A {shlex.quote(a.account or default_account)}")
             for key, value in (a.custom_attributes or {}).items():
+                if key.startswith("apptainer-"):
+                    continue
                 d.append(f"#PBS -{key} {value}".rstrip())
         elif default_account:
             d.append(f"#PBS -A {shlex.quote(default_account)}")
