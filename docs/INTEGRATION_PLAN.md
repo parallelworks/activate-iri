@@ -27,26 +27,9 @@ Two modes carry the integration. Outbound, one PW endpoint exposes many ACTIVATE
 | 3. IRI consumer | PW calls facilities | ACTIVATE workflow that submits PSI/J jobs to any IRI facility and returns output; cross-facility status board | Facility runs an IRI endpoint | activate-iri-connector |
 | 4. Orchestration and AI | AmSC-IRO and MAG | AmSCROT profile for the PW endpoint (no code) and an optional native ACTIVATE service client; the ACTIVATE AI gateway published as an IRI inference service | AmSC registry entry | amscrot-activate |
 
-```
-                 AmSC control plane                                 Parallel Works
-   +--------------------------------------------+      +------------------------------------------+
-   |  API gateway -> orchestration (AmSC-IRO)    |      |  ACTIVATE control plane                  |
-   |  federated identity (Keycard)               |      |   clusters, allocations, AI gateway,     |
-   |  Resource Catalog / Model Access Gateway    |      |   workflows, agent heartbeat, SCIM       |
-   +----------------+---------------------------+      +---------+------------------+-------------+
-                    | Keycard (aud = endpoint URL)                |                  |
-                    v                                             v                  v
-   +------------------------------+   +-------------------------------+   +--------------------------+
-   | Surface 1: federation        |   | Surface 2: edge endpoint      |   | Surface 3: consumer      |
-   | activate-iri beside the      |   | activate-iri on login node    |   | iri-job workflow, board  |
-   | control plane                |   | local executor (sudo -u)      |   | -> ALCF / NERSC / OLCF   |
-   +------+-----------+----------+   +-------------+-----------------+   +--------------------------+
-          |           |                            |
-          v           v                            v
-   cloud Slurm   NeoCloud / existing        partner Slurm or PBS cluster
-   (AWS, Azure,  clusters (agent)           (agent + reverse tunnel, no inbound)
-    GCP, OCI)
-```
+![Integration overview](diagrams/overview.svg)
+
+Detailed diagrams (request path, identity, job and filesystem sequences, routing, gateway, edge kit, resource model, status ledger, topology) are in `ARCHITECTURE.md`; deployment shapes and the runbook are in `DEPLOYMENT.md`.
 
 ### 3.1 Federation endpoint
 

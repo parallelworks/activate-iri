@@ -6,6 +6,8 @@ mechanism and implements all seven domains: facility, status, account, compute, 
 storage, task. AmSC Keycard validation, idempotent job submission, OpenTelemetry, and the
 API-gateway forwarding headers come from the framework unchanged.
 
+Diagrams of the request path, executors, gateway, and identity flows are in `../docs/ARCHITECTURE.md`; deployment recipes in `../docs/DEPLOYMENT.md`.
+
 ## Two deployment shapes, one code path
 
 | | Federation mode | Edge mode |
