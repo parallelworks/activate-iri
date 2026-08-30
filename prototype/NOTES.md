@@ -25,6 +25,14 @@ Findings during bring-up.
 4. The platform credential in use is a 24-hour token from the pw CLI context. Create a service API key in the ACTIVATE UI before leaving the endpoint running unattended; `run.sh` picks up an `apikey` entry automatically.
 5. AmSC Keycard validation stays off (`AMSC_TOKEN_ENABLED=false`) until AmSC registers the endpoint audience (`https://activate-iri.activate.pw/`) and supplies the issuer and a test project context. The mapping file carries a placeholder project.
 
+Workflows on the platform (2026-08-29, later the same day).
+
+| Workflow | Purpose | Status |
+|---|---|---|
+| `iri-exec` (from `activate-iri/deploy/federation/iri-exec.workflow.yaml`) | Transport for the `WorkflowExecutor`: runs a base64 script on a cluster login node and prints the result between markers | Created with `pw workflows create --yaml`. Verified from Python: `WorkflowExecutor.run()` against the `a30gpuserver` record returned rc 0 with stdout and the stdin payload. On the managed-cluster record (`labcluster`) the run fails at SSH because the platform user does not exist on the node; enable user population and SSH-key sync in the managed cluster's access management, or use an existing-cluster record with an explicit SSH user, before pointing the executor at it. |
+| `iri-job` (from `activate-iri-connector/workflow/iri-job/workflow.yaml`) | Consumer side: submit a PSI/J job to any IRI facility, poll, fetch stdout | Created and validated against the platform workflow schema (0 errors). Round trip verified: run `iri-job-00001` submitted through the public prototype endpoint, Slurm job 18 ran on the lab cluster, stdout came back through the filesystem task loop. |
+
+Both YAML files validate against https://activate.parallel.works/workflow.schema.json. The CLI's `runs logs -o json` returns a list of `{job, step, stepIndex, status, duration, logs}`; the executor reads the `logs` key.
 Routing and gateway (2026-08-29, evening).
 
 The endpoint now runs `ACTIVATE_IRI_EXECUTOR=auto`: the lab cluster is served locally, and the second cluster (`a30gpuserver`, an existing-cluster record) is served through `iri-exec` workflow runs under the service account. Verified through the public contract: a filesystem ls on the second cluster returned the listing, and a job submitted to it (Slurm job 22) went queued to completed with its stdout on disk. Two fixes came out of this: the workflow executor now waits for the END marker because step logs can lag the run status by a few seconds, and missing markers are reported as a failure instead of an empty success. Per the direction to serve everything under one account for now, runs use the service credential; the caller-credential pass-through is in place for the later per-user extension.
