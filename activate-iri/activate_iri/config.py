@@ -70,6 +70,8 @@ class InventoryConfig(BaseModel):
     include_names: list[str] = Field(default_factory=list)
     # Allowlist of storage resource names (buckets, lustre, nfs) to publish (empty = all).
     storage_names: list[str] = Field(default_factory=list)
+    # Published name per cluster name, for endpoints whose ACTIVATE display names should not be public.
+    display_names: dict[str, str] = Field(default_factory=dict)
     require_tag: str | None = None
     # Clusters this endpoint can run commands on through its executor. Empty means all published clusters.
     # Others are published for discovery and status only (no compute or filesystem endpoints).

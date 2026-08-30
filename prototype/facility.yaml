@@ -45,6 +45,7 @@ inventory:
   exclude_names: []
   include_names: [labcluster, a30gpuserver, awssmall, azurev3, googlerockyv3]
   storage_names: [awsfsx, awsbucket, googlebucket]
+  display_names: { a30gpuserver: Lab A30 GPU server, labcluster: Lab cluster }
   require_tag: null
   execution_clusters: [labcluster, a30gpuserver]   # cloud clusters stay discovery-only until elastic spend is approved
   elastic_status: up

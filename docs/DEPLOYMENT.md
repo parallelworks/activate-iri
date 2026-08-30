@@ -84,7 +84,8 @@ Location: `prototype/` on the lab cluster controller. Everything is idempotent.
     ./run.sh          # start the endpoint on 127.0.0.1:8100 (credential from the pw CLI context)
     ./publish.sh      # publish at https://activate-iri.activate.pw/ through the reverse tunnel
     ./smoke.sh        # 13-step live check including a Slurm job; exits non-zero on failure
-    ./stop.sh         # stop endpoint and tunnel
+    ./stop.sh         # stop the endpoint; --all also stops the tunnel
+    ./watch.sh        # keepalive loop (detached); restarts endpoint or tunnel when down
 
 Conformance (reports in `prototype/reports/`, not committed):
 

@@ -39,11 +39,14 @@ The endpoint now runs `ACTIVATE_IRI_EXECUTOR=auto`: the lab cluster is served lo
 
 Gateway mode is on with ALCF, NERSC, ESnet East, and OLCF open as upstreams: the consolidated `/status/resources` carries their resources under namespaced ids, `/status/incidents` merges their open incidents, and `/compute/resources` lists their compute systems alongside ACTIVATE's. Forwarded compute and filesystem calls need a facility token in `IRI_TOKEN_<FACILITY>`; none is configured yet, so those return 401 for upstream resources until a token is added. The gateway test suite covers forwarding against a fake upstream. DOE Schemathesis behavioural run after the merge: 48 passed, 1 skipped, 0 failed.
 
+Tunnel outage (2026-08-30). The public session showed as stopped because `stop.sh` killed the reverse tunnel along with the endpoint during a restart and nothing republished it. `stop.sh` now leaves the tunnel running unless called with `--all`, `run.sh` republishes if needed, process checks are anchored to the binary path so a shell wrapper cannot be mistaken for the process, and `watch.sh` (detached, pid in `logs/watch.pid`) restarts the endpoint or the tunnel within a minute if either is down.
+
 Operations.
 
     ./run.sh          start the endpoint (idempotent)
     ./publish.sh      publish through pw endpoints (idempotent)
     ./smoke.sh        live end-to-end check, exits non-zero on failure
-    ./stop.sh         stop both
+    ./stop.sh         stop the endpoint (add --all to stop the tunnel too)
+    ./watch.sh        keepalive loop; run detached: nohup setsid ./watch.sh > logs/watch.log 2>&1 &
 
 Topology dashboard: `../iri-topology/serve.sh` publishes the facilities map at https://iri-topology.activate.pw/ with this endpoint as one of seven facilities.

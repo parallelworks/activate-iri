@@ -100,3 +100,11 @@ def test_caller_credential_travels_with_identity(runtime):
     assert ident.credential == "pwt_ZGVtbw.not-a-credential" and ident.cluster_name == "awssmall"
     ident = runtime.identities.resolve(User(id="gtorok", name="gtorok", api_key="12345"), {"name": "awssmall", "id": "x"})
     assert ident.credential is None
+
+
+@pytest.mark.asyncio
+async def test_display_name_override(runtime):
+    runtime.config.inventory.display_names = {"labcluster": "Lab cluster (published name)"}
+    inv = await runtime.inventory(refresh=True)
+    assert any(r.name == "Lab cluster (published name)" for r in inv.resources)
+    runtime.config.inventory.display_names = {}
