@@ -28,3 +28,11 @@ def test_scripts_quote_paths_and_guard_root():
             pass
     assert posix.rm_script("/home/jdoe/work/old") == "rm -rf -- /home/jdoe/work/old"
     assert posix.compress_script("/tmp/x", "/tmp/x.tar.gz", "urn:doe-iri:compression:gzip").startswith("tar  -czf")
+
+
+def test_parse_marked_output_requires_markers():
+    from activate_iri.executor import parse_marked_output
+    ok = parse_marked_output("noise\n__IRI_BEGIN__\n19\n__IRI_END__\nrc=0\n", default_rc=0, slug="x")
+    assert ok.returncode == 0 and ok.stdout == "19\n"
+    bad = parse_marked_output("", default_rc=0, slug="iri-exec-1")
+    assert bad.returncode == 1 and "iri-exec-1" in bad.stderr

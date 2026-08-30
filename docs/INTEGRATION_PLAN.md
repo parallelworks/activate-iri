@@ -18,6 +18,8 @@ Live endpoints today: ALCF (v1; Polaris, Aurora, Sophia, Crux, and an inference 
 
 ## 3. Integration surfaces
 
+Two modes carry the integration. Outbound, one PW endpoint exposes many ACTIVATE-connected systems and clusters that host no IRI software themselves, using the ACTIVATE API to reach them: the endpoint reads inventory from the platform and executes each scheduler or filesystem command on the target cluster as an ACTIVATE workflow run under the caller's own ACTIVATE credential (or through SSH, or locally on the login node in edge mode). Inbound, users call IRI facilities from inside their ACTIVATE account through the iri-job workflow and the `iri` command in the workspace. Surfaces 1 and 2 are the outbound mode; surfaces 3 and 4 are the inbound mode.
+
 | Surface | Direction | What it is | Facility precondition | Code |
 |---|---|---|---|---|
 | 1. Federation endpoint | AmSC calls PW | One endpoint publishes every ACTIVATE cluster, storage system, and AI gateway provider selected for publication, grouped into Sites | None at the facility; ACTIVATE already reaches the cluster | activate-iri (federation mode) |
@@ -25,26 +27,9 @@ Live endpoints today: ALCF (v1; Polaris, Aurora, Sophia, Crux, and an inference 
 | 3. IRI consumer | PW calls facilities | ACTIVATE workflow that submits PSI/J jobs to any IRI facility and returns output; cross-facility status board | Facility runs an IRI endpoint | activate-iri-connector |
 | 4. Orchestration and AI | AmSC-IRO and MAG | AmSCROT profile for the PW endpoint (no code) and an optional native ACTIVATE service client; the ACTIVATE AI gateway published as an IRI inference service | AmSC registry entry | amscrot-activate |
 
-```
-                 AmSC control plane                                 Parallel Works
-   +--------------------------------------------+      +------------------------------------------+
-   |  API gateway -> orchestration (AmSC-IRO)    |      |  ACTIVATE control plane                  |
-   |  federated identity (Keycard)               |      |   clusters, allocations, AI gateway,     |
-   |  Resource Catalog / Model Access Gateway    |      |   workflows, agent heartbeat, SCIM       |
-   +----------------+---------------------------+      +---------+------------------+-------------+
-                    | Keycard (aud = endpoint URL)                |                  |
-                    v                                             v                  v
-   +------------------------------+   +-------------------------------+   +--------------------------+
-   | Surface 1: federation        |   | Surface 2: edge endpoint      |   | Surface 3: consumer      |
-   | activate-iri beside the      |   | activate-iri on login node    |   | iri-job workflow, board  |
-   | control plane                |   | local executor (sudo -u)      |   | -> ALCF / NERSC / OLCF   |
-   +------+-----------+----------+   +-------------+-----------------+   +--------------------------+
-          |           |                            |
-          v           v                            v
-   cloud Slurm   NeoCloud / existing        partner Slurm or PBS cluster
-   (AWS, Azure,  clusters (agent)           (agent + reverse tunnel, no inbound)
-    GCP, OCI)
-```
+![Integration overview](diagrams/overview.svg)
+
+Detailed diagrams (request path, identity, job and filesystem sequences, routing, gateway, edge kit, resource model, status ledger, topology) are in `ARCHITECTURE.md`; deployment shapes and the runbook are in `DEPLOYMENT.md`.
 
 ### 3.1 Federation endpoint
 
@@ -58,11 +43,17 @@ The IRI reference framework needs a Python service with facility logic behind it
 
 ### 3.3 IRI consumer
 
-The consumer half needs no platform change. The iri-job workflow takes a facility base URL, a compute resource, and a PSI/J form, submits with an Idempotency-Key tied to the workflow run, polls to a terminal state, and fetches stdout through the filesystem task loop. The facility bearer token is an account variable, granted once. Because it is an ordinary ACTIVATE workflow it composes: one DAG can stage data on a PW cloud cluster, run the large job on Polaris, and post-process on a NeoCloud GPU node. The cross-facility board lists resources, status, and open incidents across every reachable endpoint using the public groups only. A later increment adds an ACTIVATE resource type for IRI facilities so that Polaris or Perlmutter appears in the Compute list with live status and allocations.
+The consumer half needs no platform change. In the workspace terminal, `iri facilities`, `iri resources <facility>`, `iri submit <facility> <resource> --exe ... --wait --fetch`, and `iri ls <facility> <resource> <path>` call any v1 or v2 facility with tokens held as account variables. The iri-job workflow takes a facility base URL, a compute resource, and a PSI/J form, submits with an Idempotency-Key tied to the workflow run, polls to a terminal state, and fetches stdout through the filesystem task loop. The facility bearer token is an account variable, granted once. Because it is an ordinary ACTIVATE workflow it composes: one DAG can stage data on a PW cloud cluster, run the large job on Polaris, and post-process on a NeoCloud GPU node. The cross-facility board lists resources, status, and open incidents across every reachable endpoint using the public groups only. A later increment adds an ACTIVATE resource type for IRI facilities so that Polaris or Perlmutter appears in the Compute list with live status and allocations.
 
 ### 3.4 Orchestration and the AI gateway
 
 AmSC-IRO reaches the PW endpoint through an AmSCROT credential profile of type AMSC_IRI and the PW base URL. The optional `amscrot-activate` service client adds what the IRI contract does not carry: provider and region choice, cluster sizing for the job, and ACTIVATE allocation balances, through the same discover, plan, create, status, destroy lifecycle, so a Session can mix an ACTIVATE job with IRI jobs at lab facilities. The ACTIVATE AI gateway (OpenAI-compatible, allocation-bound keys with budget caps, per-user attribution) is published as `urn:doe-iri:resource:service:inference` with the OpenAI API URN and endpoint list, matching the v2 inference profile and the ALCF inference-service resource; the Model Access Gateway can route to it as one more provider.
+
+### 3.5 Consolidated gateway
+
+A third shape follows from the two modes: one endpoint that fronts every IRI facility a user can reach, the "proxy IRI server" of the IRI deployment models. In gateway mode the endpoint reads the public groups of each configured upstream facility (ALCF, NERSC, OLCF, ESnet, other PW endpoints), merges their Sites, resources, capabilities, and open incidents into its own facility under namespaced identifiers (`alcf:<upstream id>`), and forwards compute, filesystem, and account calls on a namespaced resource to the upstream with the caller's facility token. ACTIVATE's own clusters keep the normal path. An AmSC orchestrator, an Airflow DAG, or the `iri` command then needs one base URL and one credential map instead of one per facility. The prototype runs in this mode with ALCF, NERSC, ESnet East, and OLCF as upstreams for discovery; authenticated forwarding is exercised against a fake upstream in the test suite and turns on per facility when a token is configured.
+
+Product direction: today a facility is registered through the endpoint's facility file. The platform equivalent of what `pw endpoints http --openai` does for model servers is an IRI endpoint type on connected systems: `pw endpoints http --iri` registers a local IRI facility endpoint with the platform, the platform keeps the registry, and the consolidated gateway builds its upstream list from it. The same registry backs the topology dashboard and the account-level view of facilities.
 
 ## 4. Resource model
 
@@ -155,7 +146,9 @@ Phase 3, orchestration depth (2027). Upstream the ACTIVATE AmSCROT service clien
 | `activate-iri/activate_iri/schedulers.py` | PSI/J to Slurm and PBS Pro scripts, status and cancel parsing with accounting-free fallbacks |
 | `activate-iri/activate_iri/posix.py` | Filesystem operations as scripts, parsers, and path guards |
 | `activate-iri/activate_iri/{facility,status,account,compute,filesystem,storage,task}.py` | The seven IRI v2 domain adapters |
-| `activate-iri/activate_iri/asgi.py` | ASGI entry point with the root `/openapi.json` alias the DOE validator expects |
+| `activate-iri/activate_iri/asgi.py` | ASGI entry point with the root `/openapi.json` alias the DOE validator expects and route-aware 405 handling |
+| `activate-iri/activate_iri/gateway.py` | Gateway mode: upstream IRI facilities merged under this endpoint with namespaced ids and token-forwarded calls |
+| `activate-iri/activate_iri/executor.py` (`RoutingExecutor`) | Per-cluster routing between local, SSH, and ACTIVATE workflow execution; caller credential pass-through |
 | `activate-iri/deploy/edge`, `deploy/federation` | Edge install script and systemd units; iri-exec workflow and Kubernetes manifest |
 | `activate-iri/tests` | 18 tests, `make venv && make test` |
 | `activate-iri-connector` | iri-job ACTIVATE workflow; cross-facility standboard |

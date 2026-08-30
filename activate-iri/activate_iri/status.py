@@ -45,10 +45,12 @@ class StatusAdapter(facility_adapter.FacilityAdapter):
     async def get_incidents(self, offset: int, limit: int, name=None, description=None, status=None, type_=None, from_=None, to=None,
                             time_=None, modified_since=None, resource_id=None, resolution=None) -> list[status_models.Incident]:
         await get_runtime().inventory()
-        items = status_models.Incident.find(get_runtime().ledger.incidents, name=name, description=description, modified_since=modified_since,
+        pool = list(get_runtime().ledger.incidents) + (get_runtime().gateway.incidents() if get_runtime().gateway else [])
+        items = status_models.Incident.find(pool, name=name, description=description, modified_since=modified_since,
                                             status=status, type_=type_, from_=from_, to=to, time_=time_, resource_id=resource_id, resolution=resolution)
         return _page(sorted(items, key=lambda i: i.start, reverse=True), offset, limit)
 
     async def get_incident(self, id_: str) -> status_models.Incident:
         await get_runtime().inventory()
-        return status_models.Incident.find_by_id(get_runtime().ledger.incidents, id_)
+        pool = list(get_runtime().ledger.incidents) + (get_runtime().gateway.incidents() if get_runtime().gateway else [])
+        return status_models.Incident.find_by_id(pool, id_)

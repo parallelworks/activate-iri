@@ -1,0 +1,33 @@
+digraph activate_iri {
+  graph [rankdir=LR, fontname="Helvetica", fontsize=11, nodesep=0.35, ranksep=0.7, bgcolor="white"];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, fillcolor="#F6F7F9", color="#5B6470"];
+  edge  [fontname="Helvetica", fontsize=9, color="#5B6470"];
+
+  subgraph cluster_amsc { label="AmSC control plane"; style="rounded"; color="#9AA3AF";
+    iro   [label="AmSC-IRO / AmSCROT\norchestrator, Airflow operators"];
+    ping  [label="AmSC identity\nKeycard JWT"];
+    mag   [label="Model Access Gateway"];
+  }
+  subgraph cluster_pw { label="Parallel Works"; style="rounded"; color="#1967D2";
+    ep    [label="activate-iri endpoint\n/api/v2  IRI Facility API", fillcolor="#E8F0FE", color="#1967D2", penwidth=1.6];
+    cp    [label="ACTIVATE control plane\nclusters, allocations, workflows,\nagent heartbeat, AI gateway"];
+    ws    [label="User workspace\niri-job workflow, iri command"];
+  }
+  subgraph cluster_sys { label="Systems ACTIVATE reaches (host no IRI software)"; style="rounded"; color="#9AA3AF";
+    lab   [label="Lab cluster\nlocal execution"];
+    exist [label="Existing / NeoCloud clusters\nSSH or agent"];
+    cloud [label="Elastic cloud Slurm\nAWS, Azure, GCP, OCI"];
+    partner [label="Partner cluster, nothing deployed\nedge kit: agent + reverse tunnel"];
+  }
+  subgraph cluster_labs { label="Lab facilities with IRI endpoints"; style="rounded"; color="#1E7F5C";
+    alcf  [label="ALCF v1"]; nersc [label="NERSC v1, v2"]; olcf [label="OLCF open / moderate"]; esnet [label="ESnet East / West"];
+  }
+
+  iro  -> ep   [label="mode 1: Keycard or\nACTIVATE credential", color="#1967D2", penwidth=1.4];
+  ping -> ep   [label="JWKS, aud = endpoint URL", style=dashed];
+  ep   -> cp   [label="inventory, allocations,\nusage events; iri-exec runs", color="#1967D2", penwidth=1.4];
+  cp   -> lab; cp -> exist; cp -> cloud; cp -> partner;
+  ep   -> alcf [label="gateway: namespaced ids,\nforwarded calls", color="#1E7F5C"]; ep -> nersc [color="#1E7F5C"]; ep -> olcf [color="#1E7F5C"]; ep -> esnet [color="#1E7F5C"];
+  ws   -> alcf [label="mode 2: PSI/J jobs,\nfilesystem task loop", color="#1E7F5C"]; ws -> ep [label="mode 2 via PW endpoint", color="#1E7F5C"];
+  mag  -> cp   [label="OpenAI-compatible provider", style=dashed];
+}

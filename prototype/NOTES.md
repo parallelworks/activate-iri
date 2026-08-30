@@ -33,6 +33,11 @@ Workflows on the platform (2026-08-29, later the same day).
 | `iri-job` (from `activate-iri-connector/workflow/iri-job/workflow.yaml`) | Consumer side: submit a PSI/J job to any IRI facility, poll, fetch stdout | Created and validated against the platform workflow schema (0 errors). Round trip verified: run `iri-job-00001` submitted through the public prototype endpoint, Slurm job 18 ran on the lab cluster, stdout came back through the filesystem task loop. |
 
 Both YAML files validate against https://activate.parallel.works/workflow.schema.json. The CLI's `runs logs -o json` returns a list of `{job, step, stepIndex, status, duration, logs}`; the executor reads the `logs` key.
+Routing and gateway (2026-08-29, evening).
+
+The endpoint now runs `ACTIVATE_IRI_EXECUTOR=auto`: the lab cluster is served locally, and the second cluster (`a30gpuserver`, an existing-cluster record) is served through `iri-exec` workflow runs under the service account. Verified through the public contract: a filesystem ls on the second cluster returned the listing, and a job submitted to it (Slurm job 22) went queued to completed with its stdout on disk. Two fixes came out of this: the workflow executor now waits for the END marker because step logs can lag the run status by a few seconds, and missing markers are reported as a failure instead of an empty success. Per the direction to serve everything under one account for now, runs use the service credential; the caller-credential pass-through is in place for the later per-user extension.
+
+Gateway mode is on with ALCF, NERSC, ESnet East, and OLCF open as upstreams: the consolidated `/status/resources` carries their resources under namespaced ids, `/status/incidents` merges their open incidents, and `/compute/resources` lists their compute systems alongside ACTIVATE's. Forwarded compute and filesystem calls need a facility token in `IRI_TOKEN_<FACILITY>`; none is configured yet, so those return 401 for upstream resources until a token is added. The gateway test suite covers forwarding against a fake upstream. DOE Schemathesis behavioural run after the merge: 48 passed, 1 skipped, 0 failed.
 
 Operations.
 

@@ -76,3 +76,27 @@ async def test_execution_clusters_restrict_endpoints(runtime):
     aws = next(r for r in inv.resources if r.name == "Public Cloud (AWS)")
     assert lab.supported_endpoints and aws.supported_endpoints == []
     runtime.config.inventory.execution_clusters = []
+
+
+def test_routing_executor_picks_by_cluster():
+    from activate_iri.executor import ExecIdentity, RoutingExecutor
+
+    class Tag:
+        def __init__(self, name): self.name = name
+        async def run(self, identity, script, cwd=None, stdin=None, timeout=300): return self.name
+
+    r = RoutingExecutor(default=Tag("workflow"), local=Tag("local"), local_clusters=["labcluster"], ssh=Tag("ssh"), ssh_clusters=["neo-h100"])
+    assert r.pick(ExecIdentity(posix_user="u", cluster_name="labcluster")).name == "local"
+    assert r.pick(ExecIdentity(posix_user="u", cluster_name="neo-h100")).name == "ssh"
+    assert r.pick(ExecIdentity(posix_user="u", cluster_name="awssmall")).name == "workflow"
+
+
+def test_caller_credential_travels_with_identity(runtime):
+    from app.types.user import User
+
+    from activate_iri.auth import is_activate_credential
+    assert is_activate_credential("pwt_ZGVtbw.not-a-credential") and not is_activate_credential("12345")
+    ident = runtime.identities.resolve(User(id="jane.doe", name="jane.doe", api_key="pwt_ZGVtbw.not-a-credential"), {"name": "awssmall", "id": "x"})
+    assert ident.credential == "pwt_ZGVtbw.not-a-credential" and ident.cluster_name == "awssmall"
+    ident = runtime.identities.resolve(User(id="gtorok", name="gtorok", api_key="12345"), {"name": "awssmall", "id": "x"})
+    assert ident.credential is None

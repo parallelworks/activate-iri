@@ -41,6 +41,7 @@ class ExecIdentity:
     platform_user: str | None = None
     cluster_id: str | None = None
     cluster_name: str | None = None
+    credential: str | None = None   # caller's ACTIVATE credential, when the caller authenticated with one
 
 
 @dataclass
@@ -159,40 +160,63 @@ class WorkflowExecutor(Executor):
     invokes the pw CLI so it works against any ACTIVATE version the CLI supports.
     """
 
-    def __init__(self, pw_bin: str = "pw", workflow: str = "iri-exec", poll: float = 3.0):
-        self.pw_bin, self.workflow, self.poll = pw_bin, workflow, poll
+    def __init__(self, pw_bin: str = "pw", workflow: str = "iri-exec", poll: float = 3.0, service_credential: str | None = None):
+        self.pw_bin, self.workflow, self.poll, self.service_credential = pw_bin, workflow, poll, service_credential
+
+    def _env(self, identity: ExecIdentity) -> dict:
+        """The pw CLI honors PW_API_KEY over its credentials file. When the caller authenticated with an
+        ACTIVATE credential the run happens in the caller's own account and identity; otherwise the
+        endpoint's service credential is used (AmSC Keycard callers, mapped to a project service account)."""
+        env = dict(os.environ)
+        credential = identity.credential or self.service_credential
+        if credential:
+            env["PW_API_KEY"] = credential
+        return env
 
     async def run(self, identity, script, cwd=None, stdin=None, timeout=300):
         if not identity.cluster_name:
             return CommandResult(98, "", "no cluster name for resource")
+        env = self._env(identity)
         inputs = {
             "resource": identity.cluster_name,
             "script_b64": base64.b64encode(_wrap(script, cwd).encode()).decode(),
             "stdin_b64": base64.b64encode(stdin or b"").decode(),
         }
-        start = await _spawn([self.pw_bin, "workflows", "run", "-o", "json", "-i", json.dumps(inputs), self.workflow], None, 60)
+        start = await _spawn([self.pw_bin, "workflows", "run", "-o", "json", "-i", json.dumps(inputs), self.workflow], None, 60, env=env)
         start.check("pw workflows run")
         run = json.loads(start.stdout)
         slug = run.get("slug") or run.get("run", {}).get("slug")
         deadline = time.time() + timeout
         status = "running"
         while time.time() < deadline:
-            view = await _spawn([self.pw_bin, "workflows", "runs", "view", "-o", "json", slug], None, 60)
+            view = await _spawn([self.pw_bin, "workflows", "runs", "view", "-o", "json", slug], None, 60, env=env)
             if view.returncode == 0:
                 status = json.loads(view.stdout).get("status", status)
                 if status in ("completed", "error", "canceled"):
                     break
             await asyncio.sleep(self.poll)
-        logs = await _spawn([self.pw_bin, "workflows", "runs", "logs", "-o", "json", slug], None, 60)
-        steps = json.loads(logs.stdout or "[]")
-        if isinstance(steps, dict):
-            steps = steps.get("steps") or steps.get("logs") or []
-        text = "\n".join((step.get("logs") or step.get("log") or "") if isinstance(step, dict) else str(step) for step in steps)
-        return parse_marked_output(text, default_rc=0 if status == "completed" else 1)
+        # Step logs can lag the terminal status by a few seconds; wait for the END marker.
+        text = ""
+        for _ in range(20):
+            logs = await _spawn([self.pw_bin, "workflows", "runs", "logs", "-o", "json", slug], None, 60, env=env)
+            try:
+                steps = json.loads(logs.stdout or "[]")
+            except ValueError:
+                steps = []
+            if isinstance(steps, dict):
+                steps = steps.get("steps") or steps.get("logs") or []
+            text = "\n".join((step.get("logs") or step.get("log") or "") if isinstance(step, dict) else str(step) for step in steps)
+            if END in text or status != "completed":
+                break
+            await asyncio.sleep(2)
+        return parse_marked_output(text, default_rc=0 if status == "completed" else 1, slug=slug)
 
 
-def parse_marked_output(text: str, default_rc: int = 1) -> CommandResult:
-    """Extract the payload the iri-exec workflow prints between BEGIN and END markers."""
+def parse_marked_output(text: str, default_rc: int = 1, slug: str = "") -> CommandResult:
+    """Extract the payload the iri-exec workflow prints between BEGIN and END markers.
+
+    Missing markers mean the script never ran to the trailer (or the log is unavailable); that is
+    reported as a failure with the raw log as stderr, never as an empty success."""
     if BEGIN in text and END in text:
         payload = text.split(BEGIN, 1)[1].split(END, 1)[0]
         trailer = text.split(END, 1)[1]
@@ -201,4 +225,31 @@ def parse_marked_output(text: str, default_rc: int = 1) -> CommandResult:
             if line.startswith("rc="):
                 rc = int(line[3:].strip() or default_rc)
         return CommandResult(rc, payload.lstrip("\n"), "")
-    return CommandResult(default_rc, text, "")
+    return CommandResult(default_rc or 1, "", f"workflow run {slug} produced no marked output: {text[-300:]}")
+
+
+class RoutingExecutor(Executor):
+    """Route each command to the executor that can reach the resource's cluster.
+
+    Clusters named in ``local_clusters`` (typically the host this endpoint runs on) use the local
+    executor; everything else goes through the default executor, normally the workflow executor,
+    which reaches any cluster the ACTIVATE account can see through the platform API. This is what
+    lets one endpoint front many connected systems that host no IRI software themselves.
+    """
+
+    def __init__(self, default: Executor, local: Executor | None = None, local_clusters: list[str] | None = None,
+                 ssh: Executor | None = None, ssh_clusters: list[str] | None = None):
+        self.default, self.local, self.ssh = default, local, ssh
+        self.local_clusters = set(local_clusters or [])
+        self.ssh_clusters = set(ssh_clusters or [])
+
+    def pick(self, identity: ExecIdentity) -> Executor:
+        name = identity.cluster_name or ""
+        if self.local and name in self.local_clusters:
+            return self.local
+        if self.ssh and name in self.ssh_clusters:
+            return self.ssh
+        return self.default
+
+    async def run(self, identity, script, cwd=None, stdin=None, timeout=300):
+        return await self.pick(identity).run(identity, script, cwd=cwd, stdin=stdin, timeout=timeout)

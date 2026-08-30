@@ -37,6 +37,20 @@ class MappedIdentity:
     account: str | None = None
 
 
+def is_activate_credential(value: str | None) -> bool:
+    """ACTIVATE API keys start with pwt_; platform tokens are JWTs. AmSC Keycards are also JWTs, so a
+    Keycard caller is recognized by the framework before this is consulted (see get_current_user_amsc)."""
+    if not value:
+        return False
+    if value.startswith("pwt_"):
+        return True
+    parts = value.split(".")
+    return len(parts) == 3 and value.startswith("eyJ") and value not in _keycards_seen
+
+
+_keycards_seen: set[str] = set()
+
+
 class _Cache:
     def __init__(self, ttl: float = 300.0):
         self.ttl, self.data = ttl, {}
@@ -90,6 +104,7 @@ class ActivateAuthMixin:
         rt = get_runtime()
         mapped = resolve_amsc_mapping(amsc_claims["amsc_project_context"], rt.settings.amsc_mapping_file)
         rt.identities.remember(mapped)
+        _keycards_seen.add(api_key)   # a Keycard is not an ACTIVATE credential; jobs run under the endpoint's account
         return mapped.user
 
     async def get_user(self, user_id: str, api_key: str, client_ip: str | None) -> User:
@@ -130,5 +145,6 @@ class IdentityResolver:
             conn = cluster.get("connectionString") or ""
             if not host and "@" in conn:
                 host = conn.split("@", 1)[1]
-        return ExecIdentity(posix_user=posix, host=host, platform_user=user.id,
+        credential = user.api_key if is_activate_credential(user.api_key) else None
+        return ExecIdentity(posix_user=posix, host=host, platform_user=user.id, credential=credential,
                             cluster_id=cluster.get("id") if cluster else None, cluster_name=cluster.get("name") if cluster else None)
