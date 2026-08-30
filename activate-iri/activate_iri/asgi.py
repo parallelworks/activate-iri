@@ -63,7 +63,7 @@ if _console_dir.is_dir():
 # Behind the ACTIVATE reverse tunnel the forwarded scheme arrives as http while the public URL
 # is https; the framework builds every self_uri and task_uri from the forwarded headers, so
 # ACTIVATE_IRI_PUBLIC_SCHEME pins the scheme (a browser console on https cannot follow http).
-import os as _os  # noqa: E402
+import os as _os
 
 _public_scheme = _os.environ.get("ACTIVATE_IRI_PUBLIC_SCHEME", "").strip().lower()
 if _public_scheme in ("http", "https"):
