@@ -27,7 +27,22 @@ Two modes carry the integration. Outbound, one PW endpoint exposes many ACTIVATE
 | 3. IRI consumer | PW calls facilities | ACTIVATE workflow that submits PSI/J jobs to any IRI facility and returns output; cross-facility status board | Facility runs an IRI endpoint | activate-iri-connector |
 | 4. Orchestration and AI | AmSC-IRO and MAG | AmSCROT profile for the PW endpoint (no code) and an optional native ACTIVATE service client; the ACTIVATE AI gateway published as an IRI inference service | AmSC registry entry | amscrot-activate |
 
-![Integration overview](diagrams/overview.svg)
+```mermaid
+flowchart TB
+    AMSC["AmSC orchestrator<br/>AmSC-IRO, AmSCROT, Airflow"]
+    USER["ACTIVATE user<br/>iri-job workflow, iri command"]
+    EP["activate-iri endpoint<br/>one IRI Facility API v2 for everything ACTIVATE reaches,<br/>with other facilities consolidated behind it"]
+    SYS["Systems ACTIVATE reaches, no IRI software on them<br/>lab clusters, existing and NeoCloud clusters,<br/>elastic cloud Slurm, partner sites via the edge kit"]
+    LABS["Facilities with their own IRI endpoints<br/>ALCF, NERSC, OLCF, ESnet"]
+
+    AMSC -- "mode 1: AmSC calls in<br/>Keycard or ACTIVATE credential" --> EP
+    USER -- "mode 2: any facility<br/>through one URL" --> EP
+    USER -. "or directly" .-> LABS
+    EP -- "jobs and file operations run through<br/>the ACTIVATE API: workflow runs, SSH, or local" --> SYS
+    EP -- "gateway: forwarded with<br/>the caller's facility token" --> LABS
+```
+
+A static rendering is in `diagrams/overview.svg`.
 
 Detailed diagrams (request path, identity, job and filesystem sequences, routing, gateway, edge kit, resource model, status ledger, topology) are in `ARCHITECTURE.md`; deployment shapes and the runbook are in `DEPLOYMENT.md`.
 

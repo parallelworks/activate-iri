@@ -13,7 +13,22 @@ Parallel Works ACTIVATE as a DOE Integrated Research Infrastructure (IRI) facili
 | `prototype/` | The running prototype: facility file, scripts to run and publish the endpoint through `pw endpoints`, and a live smoke test |
 | `iri-topology/` | Facilities topology dashboard: aggregates IRI endpoints into the status-monitor topology format and serves the map |
 
-![Integration overview](docs/diagrams/overview.svg)
+## Architecture
+
+```mermaid
+flowchart TB
+    AMSC["AmSC orchestrator<br/>AmSC-IRO, AmSCROT, Airflow"]
+    USER["ACTIVATE user<br/>iri-job workflow, iri command"]
+    EP["activate-iri endpoint<br/>one IRI Facility API v2 for everything ACTIVATE reaches,<br/>with other facilities consolidated behind it"]
+    SYS["Systems ACTIVATE reaches, no IRI software on them<br/>lab clusters, existing and NeoCloud clusters,<br/>elastic cloud Slurm, partner sites via the edge kit"]
+    LABS["Facilities with their own IRI endpoints<br/>ALCF, NERSC, OLCF, ESnet"]
+
+    AMSC -- "mode 1: AmSC calls in<br/>Keycard or ACTIVATE credential" --> EP
+    USER -- "mode 2: any facility<br/>through one URL" --> EP
+    USER -. "or directly" .-> LABS
+    EP -- "jobs and file operations run through<br/>the ACTIVATE API: workflow runs, SSH, or local" --> SYS
+    EP -- "gateway: forwarded with<br/>the caller's facility token" --> LABS
+```
 
 Mode 1: AmSC reaches every system ACTIVATE operates through one endpoint, and the endpoint runs the work through the ACTIVATE API, so the systems need no IRI software. Mode 2: ACTIVATE users call any IRI facility from their account, through the same endpoint or directly. Gateway: facilities that run their own IRI endpoint are consolidated behind the PW endpoint, so a client needs one URL.
 
