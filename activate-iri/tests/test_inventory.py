@@ -108,3 +108,16 @@ async def test_display_name_override(runtime):
     inv = await runtime.inventory(refresh=True)
     assert any(r.name == "Lab cluster (published name)" for r in inv.resources)
     runtime.config.inventory.display_names = {}
+
+
+@pytest.mark.asyncio
+async def test_control_plane_outage_serves_stale_then_degraded(runtime, monkeypatch):
+    inv1 = await runtime.inventory(refresh=True)
+    async def boom():
+        raise RuntimeError("ACTIVATE API 401: Unauthorized")
+    monkeypatch.setattr(runtime.client, "clusters", boom)
+    inv2 = await runtime.inventory(refresh=True)
+    assert inv2 is inv1, "stale inventory served while the control plane is unreachable"
+    runtime._inventory = None
+    inv3 = await runtime.inventory(refresh=True)
+    assert inv3.degraded and inv3.facility.name, "facility still answers with gateway-only inventory"

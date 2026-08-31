@@ -7,6 +7,7 @@ therefore lives here, created lazily on first use.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 
 from .activate_client import ActivateClient, FakeActivateClient
@@ -66,10 +67,20 @@ class Runtime:
                 except Exception:  # noqa: BLE001
                     self.service_user = ""
             only = self.settings.edge_cluster if self.settings.mode == "edge" else None
-            self._inventory = await self.builder.build(self.client, self.settings.activate_organization, self.service_user or None, only_cluster=only)
+            try:
+                inventory = await self.builder.build(self.client, self.settings.activate_organization, self.service_user or None, only_cluster=only)
+            except Exception as exc:  # noqa: BLE001  the control plane being unreachable must not take the facility down
+                logging.getLogger(__name__).error("inventory refresh failed (%s); %s", exc,
+                                                  "serving the previous inventory" if self._inventory else "publishing gateway upstreams only")
+                if self._inventory:
+                    self._inventory.built_at = time.time() - self.config.inventory.cache_ttl_seconds + 30
+                    return self._inventory
+                inventory = await self.builder.build(FakeActivateClient({}), None, None, only_cluster=only)
+                inventory.degraded = str(exc)[:200]
             if self.gateway:
                 await self.gateway.refresh()
-                self.gateway.merge_into(self._inventory)
+                self.gateway.merge_into(inventory)
+            self._inventory = inventory
             return self._inventory
 
 

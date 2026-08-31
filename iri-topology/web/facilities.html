@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    (function () {
+      var path = window.location.pathname || "/";
+      var base = document.createElement("base");
+      base.href = window.location.origin + path.replace(/[^\/]*$/, "");
+      document.documentElement.setAttribute("data-base-path", path.replace(/[^\/]*$/, ""));
+      document.head.appendChild(base);
+    })();
+  </script>
+  <script src="app-config.js"></script>
+  <script>
+    (function () {
+      try {
+        const saved = window.localStorage.getItem("hpc-status-theme");
+        document.documentElement.dataset.theme = saved || (window.APP_CONFIG && window.APP_CONFIG.defaultTheme) || "dark";
+      } catch (e) { document.documentElement.dataset.theme = "dark"; }
+      document.documentElement.dataset.platform = (window.APP_CONFIG && window.APP_CONFIG.platform) || "generic";
+    })();
+  </script>
+  <link rel="icon" type="image/png" href="assets/img/favicon-generic.png" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <style>
+    .pillx { display:inline-block; padding:.1rem .5rem; border-radius:999px; font-size:.74rem; font-weight:600; letter-spacing:.02em; }
+    .pillx.up, .pillx.ok { background: color-mix(in srgb, var(--success, #2e9e6b) 18%, transparent); color: var(--success, #2e9e6b); }
+    .pillx.down, .pillx.err { background: color-mix(in srgb, var(--danger, #c0392b) 18%, transparent); color: var(--danger, #c0392b); }
+    .pillx.degraded { background: color-mix(in srgb, var(--alert, #b9770e) 18%, transparent); color: var(--alert, #b9770e); }
+    .pillx.unknown { background: color-mix(in srgb, var(--muted, #888) 18%, transparent); color: var(--muted, #888); }
+    td .sub { color: var(--muted); font-size: .78rem; }
+    input.filterx { padding:.45rem .6rem; border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--text); font:inherit; min-width:16rem; }
+  </style>
+  <title>Facilities | IRI Facilities</title>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <div class="layout">
+    <header class="hero">
+      <div>
+        <p class="eyebrow" id="header-eyebrow">DOE IRI FEDERATION</p>
+        <h1>Facilities</h1>
+        <p class="lede">Each IRI endpoint this dashboard sweeps: reachability, spec version, groups served, and what it publishes.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="theme-toggle" class="theme-btn" aria-label="Toggle color theme"><span class="theme-icon" aria-hidden="true">🌙</span><span class="theme-label">Dark</span></button>
+      </div>
+    </header>
+    <nav class="subnav" aria-label="Main navigation">
+      <a href="index.html">Topology</a>
+      <a href="facilities.html" data-page="facilities">Facilities</a>
+      <a href="resources.html" data-page="resources">Resources</a>
+      <a href="incidents.html" data-page="incidents">Incidents</a>
+      <a href="https://activate-iri.activate.pw/console/">Endpoint console ↗</a>
+    </nav>
+    <main id="main-content">
+      <section class="cards" aria-label="Summary" id="cards"></section>
+      <section class="table-panel">
+        <div class="table-head"><h3>Facility endpoints</h3><p class="muted-text" id="meta"></p></div>
+        <div class="table-scroll"><table><thead><tr><th>Facility</th><th>Endpoint</th><th>Spec</th><th>Reachable</th><th>Latency</th><th>Groups served</th><th>Resources</th><th>Open incidents</th></tr></thead><tbody id="rows"></tbody></table></div>
+      </section>
+    </main>
+    <footer class="foot"><small>Assembled from each facility's public IRI endpoints; refreshed every five minutes.</small></footer>
+  </div>
+  <script type="module">
+    import { initThemeToggle, initBrand, buildDataUrl, formatRelativeTime } from "./assets/js/page-utils.js";
+    initThemeToggle(); initBrand();
+    document.querySelector('[data-page="facilities"]')?.setAttribute("aria-current", "page");
+    const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const pill = (s) => `<span class="pillx ${esc(String(s||"unknown").toLowerCase())}">${esc(s||"unknown")}</span>`;
+    const data = await fetch(buildDataUrl("api/topology") + "?t=" + Date.now(), { cache: "no-store" }).then((r) => r.json());
+    const facs = data.meta.facilities || [];
+    const up = facs.filter((f) => f.connected).length;
+    document.getElementById("cards").innerHTML = [
+      ["Facilities", facs.length], ["Reachable", up], ["Systems", data.summary.systems], ["Open incidents", (data.incidents || []).length],
+    ].map(([k, v]) => `<article class="card"><p>${k}</p><h2>${v}</h2></article>`).join("");
+    document.getElementById("meta").textContent = "Swept " + formatRelativeTime(data.meta.generated_at);
+    document.getElementById("rows").innerHTML = facs.map((f) => `<tr>
+      <td><b>${esc(f.short)}</b><div class="sub">${esc(f.facility_name || f.name)}</div></td>
+      <td class="mono"><a href="${esc(f.base_url)}/facility">${esc(f.base_url.replace(/^https?:\/\//, ""))}</a>${f.error ? `<div class="sub">${esc(f.error)}</div>` : ""}</td>
+      <td>${esc(f.version)}</td>
+      <td>${pill(f.connected ? "up" : "down")}</td>
+      <td>${f.latency_ms == null ? "" : f.latency_ms + " ms"}</td>
+      <td class="mono">${esc((f.groups || []).join(", "))}</td>
+      <td>${f.resources}</td>
+      <td>${f.open_incidents || 0}</td>
+    </tr>`).join("");
+  </script>
+</body>
+</html>

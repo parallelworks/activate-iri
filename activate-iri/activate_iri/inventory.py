@@ -82,6 +82,7 @@ class Inventory:
     storage_locations: dict[str, list[storage_models.StorageInstance]] = field(default_factory=dict)
     access_endpoints: dict[str, list[storage_models.AccessEndpoint]] = field(default_factory=dict)
     built_at: float = field(default_factory=time.time)
+    degraded: str | None = None   # set when the control plane was unreachable and only gateway upstreams are published
 
     def resource(self, resource_id: str) -> status_models.Resource | None:
         return next((r for r in self.resources if r.id == resource_id), None)

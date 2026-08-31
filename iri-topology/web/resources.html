@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    (function () {
+      var path = window.location.pathname || "/";
+      var base = document.createElement("base");
+      base.href = window.location.origin + path.replace(/[^\/]*$/, "");
+      document.documentElement.setAttribute("data-base-path", path.replace(/[^\/]*$/, ""));
+      document.head.appendChild(base);
+    })();
+  </script>
+  <script src="app-config.js"></script>
+  <script>
+    (function () {
+      try {
+        const saved = window.localStorage.getItem("hpc-status-theme");
+        document.documentElement.dataset.theme = saved || (window.APP_CONFIG && window.APP_CONFIG.defaultTheme) || "dark";
+      } catch (e) { document.documentElement.dataset.theme = "dark"; }
+      document.documentElement.dataset.platform = (window.APP_CONFIG && window.APP_CONFIG.platform) || "generic";
+    })();
+  </script>
+  <link rel="icon" type="image/png" href="assets/img/favicon-generic.png" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <style>
+    .pillx { display:inline-block; padding:.1rem .5rem; border-radius:999px; font-size:.74rem; font-weight:600; letter-spacing:.02em; }
+    .pillx.up, .pillx.ok { background: color-mix(in srgb, var(--success, #2e9e6b) 18%, transparent); color: var(--success, #2e9e6b); }
+    .pillx.down, .pillx.err { background: color-mix(in srgb, var(--danger, #c0392b) 18%, transparent); color: var(--danger, #c0392b); }
+    .pillx.degraded { background: color-mix(in srgb, var(--alert, #b9770e) 18%, transparent); color: var(--alert, #b9770e); }
+    .pillx.unknown { background: color-mix(in srgb, var(--muted, #888) 18%, transparent); color: var(--muted, #888); }
+    td .sub { color: var(--muted); font-size: .78rem; }
+    input.filterx { padding:.45rem .6rem; border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--text); font:inherit; min-width:16rem; }
+  </style>
+  <title>Resources | IRI Facilities</title>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <div class="layout">
+    <header class="hero">
+      <div>
+        <p class="eyebrow" id="header-eyebrow">DOE IRI FEDERATION</p>
+        <h1>Resources</h1>
+        <p class="lede">Every published resource across the federation, with status and the endpoints it supports.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="theme-toggle" class="theme-btn" aria-label="Toggle color theme"><span class="theme-icon" aria-hidden="true">🌙</span><span class="theme-label">Dark</span></button>
+      </div>
+    </header>
+    <nav class="subnav" aria-label="Main navigation">
+      <a href="index.html">Topology</a>
+      <a href="facilities.html" data-page="facilities">Facilities</a>
+      <a href="resources.html" data-page="resources">Resources</a>
+      <a href="incidents.html" data-page="incidents">Incidents</a>
+      <a href="https://activate-iri.activate.pw/console/">Endpoint console ↗</a>
+    </nav>
+    <main id="main-content">
+      <section class="table-panel">
+        <div class="table-head"><h3>Resources</h3><input class="filterx" id="q" placeholder="Filter by name, facility, type, status" /></div>
+        <div class="table-scroll"><table><thead><tr><th>Status</th><th>Resource</th><th>Facility</th><th>Site</th><th>Type</th><th>Scheduler</th><th>Capacity</th><th>Endpoints</th></tr></thead><tbody id="rows"></tbody></table></div>
+      </section>
+    </main>
+    <footer class="foot"><small>Assembled from each facility's public IRI endpoints; refreshed every five minutes.</small></footer>
+  </div>
+  <script type="module">
+    import { initThemeToggle, initBrand, buildDataUrl, formatRelativeTime } from "./assets/js/page-utils.js";
+    initThemeToggle(); initBrand();
+    document.querySelector('[data-page="resources"]')?.setAttribute("aria-current", "page");
+    const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const pill = (s) => `<span class="pillx ${esc(String(s||"unknown").toLowerCase())}">${esc(s||"unknown")}</span>`;
+    const data = await fetch(buildDataUrl("api/topology") + "?t=" + Date.now(), { cache: "no-store" }).then((r) => r.json());
+    const siteById = Object.fromEntries((data.sites || []).map((s) => [s.id, s]));
+    const systems = (data.nodes || []).filter((n) => n.kind === "system");
+    const cap = (c) => [c?.nodes_total && c.nodes_total + " nodes", c?.cores_total && c.cores_total.toLocaleString() + " cores", c?.gpus_total && c.gpus_total + " GPUs"].filter(Boolean).join(", ");
+    const render = () => {
+      const q = (document.getElementById("q").value || "").toLowerCase();
+      document.getElementById("rows").innerHTML = systems.filter((n) => {
+        const site = siteById[n.site] || {};
+        return !q || `${n.full_name || n.label} ${n.site_label} ${site.facility || ""} ${n.resource_type} ${n.status}`.toLowerCase().includes(q);
+      }).map((n) => `<tr>
+        <td>${pill(n.status)}</td>
+        <td><b>${esc(n.full_name || n.label)}</b>${n.description ? `<div class="sub">${esc(String(n.description).slice(0, 90))}</div>` : ""}</td>
+        <td>${esc((siteById[n.site] || {}).facility || "")}</td>
+        <td>${esc(n.site_label)}</td>
+        <td class="mono">${esc(n.resource_type)}</td>
+        <td>${esc(n.scheduler || "")}</td>
+        <td>${esc(cap(n.capacity))}</td>
+        <td class="mono">${esc((n.endpoints || []).join(", "))}</td>
+      </tr>`).join("");
+    };
+    document.getElementById("q").addEventListener("input", render); render();
+  </script>
+</body>
+</html>
