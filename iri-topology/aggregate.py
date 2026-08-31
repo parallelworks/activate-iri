@@ -68,7 +68,10 @@ class Facility:
             groups = sorted({p.split("/")[3] for p in openapi.get("paths", {}) if p.count("/") >= 3})
         except Exception:
             groups = []
-        return {"facility": facility, "sites": sites, "resources": resources, "incidents": incidents, "latency_ms": latency_ms, "groups": groups}
+        def dicts(value):
+            return [x for x in value if isinstance(x, dict)] if isinstance(value, list) else []
+        return {"facility": facility if isinstance(facility, dict) else {}, "sites": dicts(sites), "resources": dicts(resources),
+                "incidents": dicts(incidents), "latency_ms": latency_ms, "groups": groups}
 
 
 def site_record(fac: Facility, site: dict) -> dict:
@@ -84,7 +87,8 @@ def site_record(fac: Facility, site: dict) -> dict:
         "id": site_id, "name": site_label, "organization": site.get("operating_organization") or fac.name,
         "location": loc, "lat": lat, "lon": lon, "cloud": bool(override.get("cloud", fac.default_site.get("cloud", False))),
         "systems": 0, "connected": 0, "status": "UNKNOWN", "capacity": {"cores_total": 0, "cores_running": 0}, "members": [], "node_id": f"site:{site_id}",
-        "iri_site_uri": site.get("self_uri"), "facility": fac.id,
+        "facility": fac.short or fac.id.upper(),
+        "iri_site_uri": site.get("self_uri"),
     }
 
 
@@ -135,6 +139,7 @@ def build(config: dict, timeout: float = 20.0) -> dict:
     nodes: list[dict] = []
     edges: list[dict] = []
     facilities_meta = []
+    incident_rows: list[dict] = []
     with httpx.Client(timeout=timeout, follow_redirects=True, headers={"Accept": "application/json"}) as client:
         for cfg in config["facilities"]:
             fac = Facility(cfg)
@@ -144,8 +149,13 @@ def build(config: dict, timeout: float = 20.0) -> dict:
                 error = None
             except Exception as exc:
                 connected, error, data = False, str(exc)[:160], {"facility": {}, "sites": [], "resources": [], "incidents": [], "latency_ms": None, "groups": []}
-            facilities_meta.append({"id": fac.id, "name": fac.name, "base_url": fac.base, "connected": connected, "error": error, "latency_ms": data["latency_ms"],
-                                    "groups": data["groups"], "facility_name": data["facility"].get("name"), "resources": len(data["resources"])})
+            facilities_meta.append({"id": fac.id, "name": fac.name, "short": fac.short or fac.id.upper(), "base_url": fac.base, "connected": connected, "error": error,
+                                    "latency_ms": data["latency_ms"], "version": "v2" if "/v2" in fac.base else "v1", "groups": data["groups"],
+                                    "facility_name": data["facility"].get("name"), "resources": len(data["resources"]), "open_incidents": len(data["incidents"])})
+            for i in data["incidents"]:
+                incident_rows.append({"facility": fac.short or fac.id.upper(), "name": i.get("name"), "description": (i.get("description") or "")[:300],
+                                      "status": i.get("status"), "type": i.get("type"), "resolution": i.get("resolution"), "start": i.get("start"),
+                                      "resources": [u.rstrip("/").rsplit("/", 1)[-1] for u in (i.get("resource_uris") or [])][:6]})
             site_by_uri: dict[str, dict] = {}
             own_sites = [s for s in (data["sites"] or []) if ":" not in str(s.get("id", ""))]
             fac.facility_short = data["facility"].get("short_name")
@@ -195,7 +205,7 @@ def build(config: dict, timeout: float = 20.0) -> dict:
                     "up": up, "uptime_ratio": (up / len(nodes)) if nodes else 0.0, "status_counts": status_counts, "scheduler_counts": sched_counts, "queues": 0,
                     "capacity": {"cores_total": sum(n["capacity"].get("cores_total", 0) for n in nodes), "cores_running": 0, "cores_free": 0,
                                  "nodes_total": sum(n["capacity"].get("nodes_total", 0) for n in nodes), "gpus_total": sum(n["capacity"].get("gpus_total", 0) for n in nodes), "utilization_percent": 0}},
-        "sites": list(sites.values()), "nodes": [monitor] + nodes, "edges": edges,
+        "sites": list(sites.values()), "nodes": [monitor] + nodes, "edges": edges, "incidents": incident_rows,
     }
 
 
