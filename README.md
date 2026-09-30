@@ -40,4 +40,4 @@ Every endpoint serves its own console at `/console/`: what it has stood up (faci
 
 Current prototype status is recorded in `prototype/NOTES.md`.
 
-License: MIT. Copyright (c) 2026 Parallel Works, Inc.
+License: Apache-2.0. Copyright (c) 2026 Parallel Works, Inc.
